@@ -1,0 +1,12 @@
+[package]
+name = "spotify-music-vid"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dotenv = "0.15.0"
+open = "3.2.0"
+reqwest = "0.11.13"
+spotify-oauth = "0.3.0"
+tokio = {version="1.23.0", features=["full"]}
+url = "2.3.1"
