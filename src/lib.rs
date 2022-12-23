@@ -18,7 +18,7 @@ pub async fn get_auth() -> SpotifyAuth {
         client_id,
         client_secret,
         "code".to_string(),
-        "http://localhost:8000/callback".into(),
+        "http://localhost:8000/callback".to_string(),
         vec![
             SpotifyScope::UserReadPlaybackState,
             SpotifyScope::UserReadCurrentlyPlaying,
