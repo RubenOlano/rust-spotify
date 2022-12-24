@@ -118,9 +118,7 @@ pub struct ExternalIds {
 
 impl PlaybackState {
     pub fn is_diff(&self, other: &PlaybackState) -> bool {
-        let curr_item = &self.item;
-        let other_item = &other.item;
-        return curr_item.id != other_item.id;
+        self.item.id != other.item.id
     }
 
     pub fn get_currently_playing(&self) -> Song {

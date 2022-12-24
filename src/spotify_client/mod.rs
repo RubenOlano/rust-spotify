@@ -18,11 +18,8 @@ pub enum ClientError {
     HeaderError(InvalidHeaderValue),
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 struct EnvVars {
-    client_id: String,
-    client_secret: String,
     callback_url: String,
 }
 
@@ -105,21 +102,24 @@ impl SpotifyClient {
     pub async fn start_polling(&mut self) -> Result<(), ClientError> {
         while let Ok(state) = self.get_state_loop().await {
             if self.check_state_change(&state) {
-                let song = state.get_currently_playing();
-                let vid = self.yt_client.get_song_vid(song).await;
-                let vid = match vid {
-                    Ok(vid) => vid,
-                    Err(e) => {
-                        println!("Error getting video: {:?}", e);
-                        continue;
-                    }
-                };
-                println!("Playing: {}", vid);
+                self.handle_state_change(state).await;
             }
 
             sleep(Duration::from_millis(250)).await;
         }
         Ok(())
+    }
+
+    async fn handle_state_change(&mut self, state: PlaybackState) {
+        let song = state.get_currently_playing();
+        let vid = self.yt_client.get_song_vid(song).await;
+        let Ok(vid) = vid else {
+            return;
+        };
+        match open::that(vid) {
+            Ok(_) => println!("Opened video"),
+            Err(e) => println!("Error opening video: {:?}", e),
+        }
     }
 
     fn check_state_change(&mut self, state: &PlaybackState) -> bool {
@@ -142,26 +142,12 @@ impl EnvVars {
     fn load_vars() -> Self {
         dotenv().ok();
 
-        let client_id = match std::env::var("SPOTIFY_CLIENT_ID") {
-            Ok(id) => id,
-            Err(e) => panic!("Error getting client_id: {}", e),
-        };
-
-        let client_secret = match std::env::var("SPOTIFY_CLIENT_SECRET") {
-            Ok(secret) => secret,
-            Err(e) => panic!("Error getting client_secret: {}", e),
-        };
-
         let callback_url = match std::env::var("SPOTIFY_CALLBACK_URL") {
             Ok(url) => url,
             Err(_) => "http://localhost:8000/callback".to_string(),
         };
 
-        return EnvVars {
-            client_id,
-            client_secret,
-            callback_url,
-        };
+        return EnvVars { callback_url };
     }
 }
 
