@@ -72,6 +72,7 @@ fn parse_token_res() -> SpotifyCallback {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Song {
     pub name: String,
     pub artist: String,

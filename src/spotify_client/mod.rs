@@ -1,15 +1,21 @@
 use dotenv::dotenv;
-use reqwest::header::{HeaderMap, AUTHORIZATION, CONTENT_TYPE};
+use reqwest::header::{HeaderMap, HeaderValue, InvalidHeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use spotify_oauth::{SpotifyAuth, SpotifyToken};
 use tokio::time::{sleep, Duration};
 use url::Url;
 
-use crate::player_state::PlaybackState;
+use crate::{
+    player_state::PlaybackState,
+    youtube_client::{self, YoutubeClient},
+};
 
 #[derive(Debug)]
 pub enum ClientError {
+    CreatedError(String),
     ReqwestError(reqwest::Error),
     NoStateError(String),
+    YoutubeError(youtube_client::ClientError),
+    HeaderError(InvalidHeaderValue),
 }
 
 #[allow(dead_code)]
@@ -27,18 +33,23 @@ pub struct SpotifyClient {
     pub client_secret: String,
     callback_url: Url,
     prev_state: Option<PlaybackState>,
+    yt_client: YoutubeClient,
 }
 
 impl SpotifyClient {
-    pub async fn new(auth: SpotifyAuth, token: SpotifyToken) -> Self {
+    pub async fn new(auth: SpotifyAuth, token: SpotifyToken) -> Result<Self, ClientError> {
         let env_vars = EnvVars::load_vars();
-        return SpotifyClient {
+        Ok(SpotifyClient {
             token,
             client_id: auth.client_id,
             client_secret: auth.client_secret,
-            callback_url: Url::parse(&env_vars.callback_url).unwrap(),
+            callback_url: Url::parse(&env_vars.callback_url)
+                .map_err(|e| ClientError::CreatedError(e.to_string()))?,
             prev_state: None,
-        };
+            yt_client: YoutubeClient::new()
+                .await
+                .map_err(ClientError::YoutubeError)?,
+        })
     }
 
     async fn get_state_loop(&mut self) -> Result<PlaybackState, ClientError> {
@@ -54,9 +65,10 @@ impl SpotifyClient {
 
     async fn get_state(&self) -> Result<PlaybackState, ClientError> {
         let client = reqwest::Client::new();
+        let headers = self.get_headers()?;
         let res = client
             .get("https://api.spotify.com/v1/me/player")
-            .headers(self.get_headers())
+            .headers(headers)
             .send()
             .await;
 
@@ -75,20 +87,36 @@ impl SpotifyClient {
         };
     }
 
-    fn get_headers(&self) -> HeaderMap {
-        let token_string = format!("Bearer {}", self.token.access_token);
+    fn get_headers(&self) -> Result<HeaderMap, ClientError> {
+        let token_string: HeaderValue = format!("Bearer {}", self.token.access_token)
+            .parse()
+            .map_err(ClientError::HeaderError)?;
+
+        let json: HeaderValue = "application/json"
+            .parse()
+            .map_err(ClientError::HeaderError)?;
+
         let mut headers = HeaderMap::new();
-        headers.insert(AUTHORIZATION, token_string.parse().unwrap());
-        headers.insert(CONTENT_TYPE, "application/json".parse().unwrap());
-        headers
+        headers.insert(AUTHORIZATION, token_string);
+        headers.insert(CONTENT_TYPE, json);
+        Ok(headers)
     }
 
     pub async fn start_polling(&mut self) -> Result<(), ClientError> {
         while let Ok(state) = self.get_state_loop().await {
             if self.check_state_change(&state) {
-                println!("State changed!");
+                let song = state.get_currently_playing();
+                let vid = self.yt_client.get_song_vid(song).await;
+                let vid = match vid {
+                    Ok(vid) => vid,
+                    Err(e) => {
+                        println!("Error getting video: {:?}", e);
+                        continue;
+                    }
+                };
+                println!("Playing: {}", vid);
             }
-            println!("Currently Playing: {}", state.progress_as_string());
+
             sleep(Duration::from_millis(250)).await;
         }
         Ok(())
@@ -106,8 +134,7 @@ impl SpotifyClient {
     }
 
     fn update_state(&mut self, state: &PlaybackState) {
-        let new_state = state.clone();
-        self.prev_state = Some(new_state);
+        self.prev_state = Some(state.clone());
     }
 }
 
@@ -154,6 +181,7 @@ impl Clone for SpotifyClient {
             client_secret: self.client_secret.clone(),
             callback_url: self.callback_url.clone(),
             prev_state: None,
+            yt_client: self.yt_client.clone(),
         }
     }
 }

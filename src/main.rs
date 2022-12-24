@@ -10,6 +10,15 @@ async fn main() {
     let auth = get_auth().await;
     let token = get_token(&auth).await;
 
-    let mut client = SpotifyClient::new(auth, token).await;
-    client.start_polling().await.unwrap();
+    let mut client = match SpotifyClient::new(auth, token).await {
+        Ok(client) => client,
+        Err(e) => {
+            println!("Error creating client: {:?}", e);
+            return;
+        }
+    };
+    match client.start_polling().await {
+        Ok(_) => println!("Done"),
+        Err(e) => println!("Error: {:?}", e),
+    }
 }
