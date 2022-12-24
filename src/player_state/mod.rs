@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter};
 
 use serde::{Deserialize, Serialize};
+use spotify_music_vid::Song;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 struct Device {
@@ -117,9 +118,12 @@ impl PlaybackState {
         return self.item.as_ref().unwrap().id != other.item.as_ref().unwrap().id;
     }
 
-    fn get_currently_playing(&self) -> (String, String) {
+    fn get_currently_playing(&self) -> Song {
         let item = self.item.as_ref().unwrap();
-        return (item.name.clone(), item.artists[0].name.clone());
+        return Song {
+            name: item.name.clone(),
+            artist: item.artists[0].name.clone(),
+        };
     }
 }
 
