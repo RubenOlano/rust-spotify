@@ -67,7 +67,7 @@ struct Item {
     is_local: bool,
     name: String,
     popularity: i32,
-    preview_url: String,
+    preview_url: Option<String>,
     track_number: i32,
     #[serde(rename(deserialize = "type"))]
     item_type: String,
@@ -100,23 +100,6 @@ pub struct PlaybackState {
 }
 
 impl PlaybackState {
-    fn get_currently_playing(&self) -> (String, String) {
-        let item = self.item.as_ref().unwrap();
-        return (item.name.clone(), item.artists[0].name.clone());
-    }
-
-    pub fn get_duration(&self) -> i32 {
-        return self.item.as_ref().unwrap().duration_ms;
-    }
-
-    pub fn duration_as_string(&self) -> String {
-        let duration = self.get_duration();
-        let seconds = duration / 1000;
-        let minutes = seconds / 60;
-        let seconds = seconds % 60;
-        return format!("{}:{}", minutes, seconds);
-    }
-
     pub fn get_progress(&self) -> i32 {
         return self.progress_ms;
     }
@@ -132,6 +115,11 @@ impl PlaybackState {
 
     pub fn is_diff(&self, other: &PlaybackState) -> bool {
         return self.item.as_ref().unwrap().id != other.item.as_ref().unwrap().id;
+    }
+
+    fn get_currently_playing(&self) -> (String, String) {
+        let item = self.item.as_ref().unwrap();
+        return (item.name.clone(), item.artists[0].name.clone());
     }
 }
 

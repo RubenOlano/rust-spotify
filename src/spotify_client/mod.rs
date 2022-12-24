@@ -1,13 +1,15 @@
 use dotenv::dotenv;
 use reqwest::header::{HeaderMap, AUTHORIZATION, CONTENT_TYPE};
 use spotify_oauth::{SpotifyAuth, SpotifyToken};
+use tokio::time::{sleep, Duration};
 use url::Url;
 
 use crate::player_state::PlaybackState;
 
 #[derive(Debug)]
-pub enum SpotifyError {
+pub enum ClientError {
     ReqwestError(reqwest::Error),
+    NoStateError(String),
 }
 
 #[allow(dead_code)]
@@ -38,10 +40,19 @@ impl SpotifyClient {
             prev_state: None,
         };
     }
-    async fn get_init_state(&self) -> Result<PlaybackState, SpotifyError> {
-        Ok(self.get_state().await?)
+
+    async fn get_state_loop(&mut self) -> Result<PlaybackState, ClientError> {
+        let mut state = self.get_state().await;
+        while let Err(e) = state {
+            println!("Error getting state: {:?}", e);
+            println!("Retrying in 5 seconds");
+            sleep(Duration::from_secs(5)).await;
+            state = self.get_state().await;
+        }
+        state
     }
-    async fn get_state(&self) -> Result<PlaybackState, SpotifyError> {
+
+    async fn get_state(&self) -> Result<PlaybackState, ClientError> {
         let client = reqwest::Client::new();
         let res = client
             .get("https://api.spotify.com/v1/me/player")
@@ -51,12 +62,16 @@ impl SpotifyClient {
 
         let res = match res {
             Ok(res) => res,
-            Err(e) => return Err(SpotifyError::ReqwestError(e)),
+            Err(e) => return Err(ClientError::ReqwestError(e)),
         };
+        if res.status() == 204 {
+            return Err(ClientError::NoStateError("No state available".to_string()));
+        }
+
         let state = res.json::<PlaybackState>().await;
         return match state {
             Ok(state) => Ok(state),
-            Err(e) => Err(SpotifyError::ReqwestError(e)),
+            Err(e) => Err(ClientError::ReqwestError(e)),
         };
     }
 
@@ -68,21 +83,17 @@ impl SpotifyClient {
         headers
     }
 
-    pub async fn get_current_state(&self) -> Result<PlaybackState, SpotifyError> {
-        let state = self.get_state().await?;
-        return Ok(state);
-    }
-
-    pub async fn start_polling(&mut self) -> Result<(), SpotifyError> {
-        while let Ok(state) = self.get_state().await {
+    pub async fn start_polling(&mut self) -> Result<(), ClientError> {
+        while let Ok(state) = self.get_state_loop().await {
             if self.check_state_change(&state) {
                 println!("State changed!");
             }
             println!("Currently Playing: {}", state.progress_as_string());
-            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+            sleep(Duration::from_millis(250)).await;
         }
         Ok(())
     }
+
     fn check_state_change(&mut self, state: &PlaybackState) -> bool {
         if let Some(prev_state) = &self.prev_state {
             if prev_state.is_diff(&state) {
@@ -93,6 +104,7 @@ impl SpotifyClient {
         self.update_state(state);
         false
     }
+
     fn update_state(&mut self, state: &PlaybackState) {
         let new_state = state.clone();
         self.prev_state = Some(new_state);

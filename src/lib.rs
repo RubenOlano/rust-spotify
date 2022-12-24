@@ -37,16 +37,8 @@ pub async fn get_token(auth: &SpotifyAuth) -> SpotifyToken {
         Err(e) => panic!("Error: {}", e),
     }
 
-    let mut buffer = String::new();
-    match stdin().read_line(&mut buffer) {
-        Ok(_) => println!("Successfully read url from stdin"),
-        Err(e) => panic!("Error: {}", e),
-    }
+    let token = parse_token_res();
 
-    let token = match SpotifyCallback::from_str(buffer.trim()) {
-        Ok(token) => token,
-        Err(e) => panic!("Error getting token: {}", e),
-    };
     match token
         .convert_into_token(
             auth.client_id.clone(),
@@ -57,5 +49,25 @@ pub async fn get_token(auth: &SpotifyAuth) -> SpotifyToken {
     {
         Ok(token) => token,
         Err(e) => panic!("Error converting into token: {}", e),
+    }
+}
+
+fn get_buffer() -> String {
+    let mut buffer = String::new();
+    loop {
+        match stdin().read_line(&mut buffer) {
+            Ok(_) => return buffer,
+            Err(e) => println!("Error reading line: {}, please try again", e),
+        }
+    }
+}
+
+fn parse_token_res() -> SpotifyCallback {
+    loop {
+        let buffer = get_buffer();
+        match SpotifyCallback::from_str(buffer.trim()) {
+            Ok(token) => return token,
+            Err(e) => println!("Error parsing token: {}, please try again", e),
+        }
     }
 }
