@@ -1,8 +1,8 @@
-use std::{fmt::Display, io::stdin, str::FromStr};
+use std::{fmt::Display, io::stdin};
 
 use color_eyre::Result;
 use spotify_oauth::{SpotifyAuth, SpotifyCallback, SpotifyScope, SpotifyToken};
-use tracing::*;
+use tracing::{info, warn};
 
 /// # Panics
 /// Panics if the environment variables are not set
@@ -64,7 +64,7 @@ fn get_buffer() -> String {
 fn parse_token_res() -> SpotifyCallback {
     loop {
         let buffer = get_buffer();
-        match SpotifyCallback::from_str(buffer.trim()) {
+        match <SpotifyCallback as std::str::FromStr>::from_str(buffer.trim()) {
             Ok(token) => return token,
             Err(e) => {
                 warn!("Error parsing token: {e} retrying");
