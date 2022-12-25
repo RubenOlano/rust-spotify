@@ -5,7 +5,7 @@ mod youtube_client;
 use color_eyre::eyre::Result;
 use spotify_client::SpotifyClient;
 use spotify_music_vid::{get_auth, get_token};
-use tracing::*;
+use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
