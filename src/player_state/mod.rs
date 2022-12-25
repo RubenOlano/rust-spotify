@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use spotify_music_vid::Song;
 
 impl PlaybackState {
-    pub fn is_diff(&self, other: &PlaybackState) -> bool {
+    pub fn is_diff(&self, other: &Self) -> bool {
         self.item.id != other.item.id
     }
 

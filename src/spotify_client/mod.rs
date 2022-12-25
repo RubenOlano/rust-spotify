@@ -36,7 +36,7 @@ pub struct SpotifyClient {
 impl SpotifyClient {
     pub async fn new(auth: SpotifyAuth, token: SpotifyToken) -> Result<Self, ClientError> {
         let env_vars = EnvVars::load_vars();
-        Ok(SpotifyClient {
+        Ok(Self {
             token,
             client_id: auth.client_id,
             client_secret: auth.client_secret,
@@ -144,7 +144,7 @@ impl EnvVars {
             Err(_) => "http://localhost:8000/callback".to_string(),
         };
 
-        EnvVars { callback_url }
+        Self { callback_url }
     }
 }
 
@@ -158,7 +158,7 @@ impl Clone for SpotifyClient {
             refresh_token: self.token.refresh_token.clone(),
             expires_at: self.token.expires_at,
         };
-        SpotifyClient {
+        Self {
             token: clone_token,
             client_id: self.client_id.clone(),
             client_secret: self.client_secret.clone(),

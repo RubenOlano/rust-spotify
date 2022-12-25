@@ -2,7 +2,7 @@ use std::{fmt::Display, io::stdin, str::FromStr};
 
 use spotify_oauth::{SpotifyAuth, SpotifyCallback, SpotifyScope, SpotifyToken};
 
-pub async fn get_auth() -> SpotifyAuth {
+pub fn get_auth() -> SpotifyAuth {
     dotenv::dotenv().ok();
     let client_id = match std::env::var("SPOTIFY_CLIENT_ID") {
         Ok(id) => id,
@@ -79,8 +79,9 @@ pub struct Song {
 }
 
 impl Song {
-    #[must_use] pub fn new(name: String, artist: String) -> Self {
-        Song { name, artist }
+    #[must_use]
+    pub const fn new(name: String, artist: String) -> Self {
+        Self { name, artist }
     }
 }
 
