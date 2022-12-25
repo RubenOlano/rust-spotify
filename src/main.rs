@@ -7,7 +7,7 @@ use spotify_music_vid::{get_auth, get_token};
 
 #[tokio::main]
 async fn main() {
-    let auth = get_auth().await;
+    let auth = get_auth();
     let token = get_token(&auth).await;
 
     let mut client = match SpotifyClient::new(auth, token).await {
