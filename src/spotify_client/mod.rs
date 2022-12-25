@@ -34,6 +34,9 @@ pub struct SpotifyClient {
 }
 
 impl SpotifyClient {
+    /// # Panics
+    ///
+    /// Panics if the environment variables are not set
     pub async fn new(auth: SpotifyAuth, token: SpotifyToken) -> Result<Self, ClientError> {
         let env_vars = EnvVars::load_vars();
         Ok(Self {
