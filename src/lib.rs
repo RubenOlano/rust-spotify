@@ -30,7 +30,8 @@ pub fn get_auth() -> SpotifyAuth {
     )
 }
 
-// # Panics
+/// # Panics
+/// Panics if the environment variables are not set
 pub async fn get_token(auth: &SpotifyAuth) -> SpotifyToken {
     let auth_url = match auth.authorize_url() {
         Ok(url) => url,

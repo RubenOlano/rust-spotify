@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SearchListResponse {
+pub struct ListResponse {
     pub(crate) kind: String,
     pub(crate) etag: String,
     #[serde(rename = "nextPageToken")]
@@ -68,7 +68,7 @@ pub struct PageInfo {
     pub(crate) results_per_page: i64,
 }
 
-impl SearchListResponse {
+impl ListResponse {
     fn get_video_id(&self) -> String {
         self.items[0].id.video_id.clone()
     }

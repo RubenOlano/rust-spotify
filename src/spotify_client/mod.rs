@@ -11,11 +11,11 @@ use crate::{
 
 #[derive(Debug)]
 pub enum ClientError {
-    CreatedError(String),
-    ReqwestError(reqwest::Error),
-    NoStateError(String),
-    YoutubeError(youtube_client::ClientError),
-    HeaderError(InvalidHeaderValue),
+    Created(String),
+    Reqwest(reqwest::Error),
+    NoState(String),
+    Youtube(youtube_client::ClientError),
+    Header(InvalidHeaderValue),
 }
 
 #[derive(Debug, Clone)]
@@ -37,16 +37,16 @@ impl SpotifyClient {
     /// # Panics
     ///
     /// Panics if the environment variables are not set
-    pub async fn new(auth: SpotifyAuth, token: SpotifyToken) -> Result<Self, ClientError> {
+    pub fn new(auth: SpotifyAuth, token: SpotifyToken) -> Result<Self, ClientError> {
         let env_vars = EnvVars::load_vars();
         Ok(Self {
             token,
             client_id: auth.client_id,
             client_secret: auth.client_secret,
             callback_url: Url::parse(&env_vars.callback_url)
-                .map_err(|e| ClientError::CreatedError(e.to_string()))?,
+                .map_err(|e| ClientError::Created(e.to_string()))?,
             prev_state: None,
-            yt_client: YoutubeClient::new().map_err(ClientError::YoutubeError)?,
+            yt_client: YoutubeClient::new().map_err(ClientError::Youtube)?,
         })
     }
 
@@ -69,27 +69,25 @@ impl SpotifyClient {
             .headers(headers)
             .send()
             .await
-            .map_err(ClientError::ReqwestError)?;
+            .map_err(ClientError::Reqwest)?;
 
         if res.status() == 204 {
-            return Err(ClientError::NoStateError("No state available".to_string()));
+            return Err(ClientError::NoState("No state available".to_string()));
         }
 
         let state = res.json::<PlaybackState>().await;
         match state {
             Ok(state) => Ok(state),
-            Err(e) => Err(ClientError::ReqwestError(e)),
+            Err(e) => Err(ClientError::Reqwest(e)),
         }
     }
 
     fn get_headers(&self) -> Result<HeaderMap, ClientError> {
         let token_string: HeaderValue = format!("Bearer {}", self.token.access_token)
             .parse()
-            .map_err(ClientError::HeaderError)?;
+            .map_err(ClientError::Header)?;
 
-        let json: HeaderValue = "application/json"
-            .parse()
-            .map_err(ClientError::HeaderError)?;
+        let json: HeaderValue = "application/json".parse().map_err(ClientError::Header)?;
 
         let mut headers = HeaderMap::new();
         headers.insert(AUTHORIZATION, token_string);

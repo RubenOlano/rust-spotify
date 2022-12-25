@@ -6,13 +6,13 @@ use reqwest::{
 };
 use spotify_music_vid::Song;
 
-use self::search::SearchListResponse;
+use self::search::ListResponse;
 
 #[derive(Debug)]
 pub enum ClientError {
-    ReqwestError(reqwest::Error),
-    HeaderError(reqwest::header::InvalidHeaderValue),
-    EnvVarError(std::env::VarError),
+    Reqwest(reqwest::Error),
+    Header(reqwest::header::InvalidHeaderValue),
+    EnvVar(std::env::VarError),
 }
 
 #[derive(Debug, Clone)]
@@ -50,29 +50,27 @@ impl YoutubeClient {
             ])
             .send()
             .await
-            .map_err(ClientError::ReqwestError)?;
+            .map_err(ClientError::Reqwest)?;
 
         let res = self.parse_res(res).await?;
         Ok(res)
     }
 
     async fn parse_res(&self, res: reqwest::Response) -> Result<String, ClientError> {
-        let res: SearchListResponse = res.json().await.map_err(ClientError::ReqwestError)?;
+        let res: ListResponse = res.json().await.map_err(ClientError::Reqwest)?;
         Ok(res.get_vid_url())
     }
 }
 
 fn get_env_var() -> Result<String, ClientError> {
     dotenv::dotenv().ok();
-    let api_key = std::env::var("YOUTUBE_API_KEY").map_err(ClientError::EnvVarError)?;
+    let api_key = std::env::var("YOUTUBE_API_KEY").map_err(ClientError::EnvVar)?;
     Ok(api_key)
 }
 
 fn get_headers() -> Result<HeaderMap, ClientError> {
     let mut headers = HeaderMap::new();
-    let json = "application/json"
-        .parse()
-        .map_err(ClientError::HeaderError)?;
+    let json = "application/json".parse().map_err(ClientError::Header)?;
     headers.insert(ACCEPT, json);
     Ok(headers)
 }
