@@ -42,7 +42,7 @@ impl SpotifyClient {
 
     async fn get_state_loop(&mut self) -> Result<PlaybackState> {
         let mut state = self.get_state().await;
-        while let Err(e) = state {
+        while let Err(ref e) = state {
             println!("Something went wrong, retrying in 5 seconds");
             error!("Failed to get state: {e}");
             sleep(Duration::from_secs(5)).await;
@@ -111,9 +111,10 @@ impl SpotifyClient {
                 self.update_state(state);
                 return true;
             }
+            return false;
         }
         self.update_state(state);
-        false
+        true
     }
 
     fn update_state(&mut self, state: &PlaybackState) {
