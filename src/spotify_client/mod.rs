@@ -139,10 +139,8 @@ impl EnvVars {
     fn load_vars() -> Self {
         dotenv().ok();
 
-        let callback_url = match std::env::var("SPOTIFY_CALLBACK_URL") {
-            Ok(url) => url,
-            Err(_) => "http://localhost:8000/callback".to_string(),
-        };
+        let callback_url = std::env::var("SPOTIFY_CALLBACK_URL")
+            .map_or_else(|_| "http://localhost:8888/callback".to_string(), |v| v);
 
         Self { callback_url }
     }
