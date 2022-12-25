@@ -2,12 +2,15 @@ use std::fmt::{Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 use spotify_music_vid::Song;
+use tracing::instrument;
 
 impl PlaybackState {
+    #[instrument]
     pub fn is_diff(&self, other: &Self) -> bool {
         self.item.id != other.item.id
     }
 
+    #[instrument]
     pub fn get_currently_playing(&self) -> Song {
         let item = &self.item;
         Song::new(item.name.clone(), item.artists[0].name.clone())

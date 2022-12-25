@@ -1,23 +1,20 @@
 use std::{fmt::Display, io::stdin, str::FromStr};
 
+use color_eyre::Result;
 use spotify_oauth::{SpotifyAuth, SpotifyCallback, SpotifyScope, SpotifyToken};
+use tracing::*;
 
 /// # Panics
 /// Panics if the environment variables are not set
 #[must_use]
-pub fn get_auth() -> SpotifyAuth {
+pub fn get_auth() -> Result<SpotifyAuth> {
+    info!("Getting env variables");
     dotenv::dotenv().ok();
-    let client_id = match std::env::var("SPOTIFY_CLIENT_ID") {
-        Ok(id) => id,
-        Err(e) => panic!("Error getting client_id: {e}"),
-    };
+    let client_id = std::env::var("SPOTIFY_CLIENT_ID")?;
 
-    let client_secret = match std::env::var("SPOTIFY_CLIENT_SECRET") {
-        Ok(secret) => secret,
-        Err(e) => panic!("Error getting client_secret: {e}"),
-    };
+    let client_secret = std::env::var("SPOTIFY_CLIENT_SECRET")?;
 
-    SpotifyAuth::new(
+    Ok(SpotifyAuth::new(
         client_id,
         client_secret,
         "code".to_string(),
@@ -27,37 +24,31 @@ pub fn get_auth() -> SpotifyAuth {
             SpotifyScope::UserReadCurrentlyPlaying,
         ],
         true,
-    )
+    ))
 }
 
 /// # Panics
 /// Panics if the environment variables are not set
-pub async fn get_token(auth: &SpotifyAuth) -> SpotifyToken {
-    let auth_url = match auth.authorize_url() {
-        Ok(url) => url,
-        Err(e) => panic!("Error with url: {e}"),
-    };
-    match open::that(auth_url) {
-        Ok(_) => println!("Opened url in browser. Please login and copy the url from the browser"),
-        Err(e) => panic!("Error: {e}"),
-    }
+pub async fn get_token(auth: &SpotifyAuth) -> Result<SpotifyToken> {
+    let auth_url = auth.authorize_url()?;
+
+    info!("Opening browser to {auth_url}");
+    open::that(auth_url)?;
 
     let token = parse_token_res();
 
-    match token
+    info!("Converting into token");
+    Ok(token
         .convert_into_token(
             auth.client_id.clone(),
             auth.client_secret.clone(),
             auth.redirect_uri.clone(),
         )
-        .await
-    {
-        Ok(token) => token,
-        Err(e) => panic!("Error converting into token: {e}"),
-    }
+        .await?)
 }
 
 fn get_buffer() -> String {
+    info!("Getting buffer");
     let mut buffer = String::new();
     loop {
         match stdin().read_line(&mut buffer) {

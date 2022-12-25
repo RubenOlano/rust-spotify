@@ -1,19 +1,14 @@
 mod search;
 
+use color_eyre::eyre::Result;
 use reqwest::{
     header::{HeaderMap, ACCEPT},
     Client,
 };
 use spotify_music_vid::Song;
+use tracing::info;
 
 use self::search::ListResponse;
-
-#[derive(Debug)]
-pub enum ClientError {
-    Reqwest(reqwest::Error),
-    Header(reqwest::header::InvalidHeaderValue),
-    EnvVar(std::env::VarError),
-}
 
 #[derive(Debug, Clone)]
 pub struct YoutubeClient {
@@ -22,21 +17,21 @@ pub struct YoutubeClient {
 }
 
 impl YoutubeClient {
-    pub fn new() -> Result<Self, ClientError> {
+    pub fn new() -> Result<Self> {
         Ok(Self {
             client: reqwest::Client::new(),
             api_key: get_env_var()?,
         })
     }
 
-    pub async fn get_song_vid(&self, song: Song) -> Result<String, ClientError> {
+    pub async fn get_song_vid(&self, song: Song) -> Result<String> {
         let query = format!("{} {} music video", song.artist, song.name);
 
         let res = self.send_req(&query).await?;
         Ok(res)
     }
 
-    async fn send_req(&self, query: &str) -> Result<String, ClientError> {
+    async fn send_req(&self, query: &str) -> Result<String> {
         let headers = get_headers()?;
 
         let res = self
@@ -49,28 +44,28 @@ impl YoutubeClient {
                 ("key", self.api_key.as_str()),
             ])
             .send()
-            .await
-            .map_err(ClientError::Reqwest)?;
+            .await?;
 
         let res = self.parse_res(res).await?;
         Ok(res)
     }
 
-    async fn parse_res(&self, res: reqwest::Response) -> Result<String, ClientError> {
-        let res: ListResponse = res.json().await.map_err(ClientError::Reqwest)?;
+    async fn parse_res(&self, res: reqwest::Response) -> Result<String> {
+        let res: ListResponse = res.json().await?;
         Ok(res.get_vid_url())
     }
 }
 
-fn get_env_var() -> Result<String, ClientError> {
-    dotenv::dotenv().ok();
-    let api_key = std::env::var("YOUTUBE_API_KEY").map_err(ClientError::EnvVar)?;
+fn get_env_var() -> Result<String> {
+    info!("Loading environment variables");
+    dotenv::dotenv()?;
+    let api_key = std::env::var("YOUTUBE_API_KEY")?;
     Ok(api_key)
 }
 
-fn get_headers() -> Result<HeaderMap, ClientError> {
+fn get_headers() -> Result<HeaderMap> {
     let mut headers = HeaderMap::new();
-    let json = "application/json".parse().map_err(ClientError::Header)?;
+    let json = "application/json".parse()?;
     headers.insert(ACCEPT, json);
     Ok(headers)
 }

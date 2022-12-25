@@ -1,22 +1,12 @@
+use color_eyre::eyre::{Error, Result};
 use dotenv::dotenv;
-use reqwest::header::{HeaderMap, HeaderValue, InvalidHeaderValue, AUTHORIZATION, CONTENT_TYPE};
+use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use spotify_oauth::{SpotifyAuth, SpotifyToken};
 use tokio::time::{sleep, Duration};
+use tracing::{error, info, instrument};
 use url::Url;
 
-use crate::{
-    player_state::PlaybackState,
-    youtube_client::{self, YoutubeClient},
-};
-
-#[derive(Debug)]
-pub enum ClientError {
-    Created(String),
-    Reqwest(reqwest::Error),
-    NoState(String),
-    Youtube(youtube_client::ClientError),
-    Header(InvalidHeaderValue),
-}
+use crate::{player_state::PlaybackState, youtube_client::YoutubeClient};
 
 #[derive(Debug, Clone)]
 struct EnvVars {
@@ -37,57 +27,53 @@ impl SpotifyClient {
     /// # Panics
     ///
     /// Panics if the environment variables are not set
-    pub fn new(auth: SpotifyAuth, token: SpotifyToken) -> Result<Self, ClientError> {
+    pub fn new(auth: SpotifyAuth, token: SpotifyToken) -> Result<Self> {
+        info!("Creating new SpotifyClient and loading environment variables");
         let env_vars = EnvVars::load_vars();
         Ok(Self {
             token,
             client_id: auth.client_id,
             client_secret: auth.client_secret,
-            callback_url: Url::parse(&env_vars.callback_url)
-                .map_err(|e| ClientError::Created(e.to_string()))?,
+            callback_url: Url::parse(&env_vars.callback_url)?,
             prev_state: None,
-            yt_client: YoutubeClient::new().map_err(ClientError::Youtube)?,
+            yt_client: YoutubeClient::new()?,
         })
     }
 
-    async fn get_state_loop(&mut self) -> Result<PlaybackState, ClientError> {
+    async fn get_state_loop(&mut self) -> Result<PlaybackState> {
         let mut state = self.get_state().await;
         while let Err(e) = state {
-            println!("Error getting state: {e:?}");
-            println!("Retrying in 5 seconds");
+            println!("Something went wrong, retrying in 5 seconds");
+            error!("Failed to get state: {e}");
             sleep(Duration::from_secs(5)).await;
             state = self.get_state().await;
         }
         state
     }
 
-    async fn get_state(&self) -> Result<PlaybackState, ClientError> {
+    async fn get_state(&self) -> Result<PlaybackState> {
         let client = reqwest::Client::new();
         let headers = self.get_headers()?;
         let res = client
             .get("https://api.spotify.com/v1/me/player")
             .headers(headers)
             .send()
-            .await
-            .map_err(ClientError::Reqwest)?;
+            .await?;
 
         if res.status() == 204 {
-            return Err(ClientError::NoState("No state available".to_string()));
+            info!("No state found, fetch again");
+            return Err(Error::msg("No state"));
         }
 
-        let state = res.json::<PlaybackState>().await;
-        match state {
-            Ok(state) => Ok(state),
-            Err(e) => Err(ClientError::Reqwest(e)),
-        }
+        let state = res.json::<PlaybackState>().await?;
+        Ok(state)
     }
 
-    fn get_headers(&self) -> Result<HeaderMap, ClientError> {
-        let token_string: HeaderValue = format!("Bearer {}", self.token.access_token)
-            .parse()
-            .map_err(ClientError::Header)?;
+    fn get_headers(&self) -> Result<HeaderMap> {
+        info!("Getting headers");
+        let token_string: HeaderValue = format!("Bearer {}", self.token.access_token).parse()?;
 
-        let json: HeaderValue = "application/json".parse().map_err(ClientError::Header)?;
+        let json: HeaderValue = "application/json".parse()?;
 
         let mut headers = HeaderMap::new();
         headers.insert(AUTHORIZATION, token_string);
@@ -95,10 +81,12 @@ impl SpotifyClient {
         Ok(headers)
     }
 
-    pub async fn start_polling(&mut self) -> Result<(), ClientError> {
+    pub async fn start_polling(&mut self) -> Result<()> {
+        info!("Starting polling");
         while let Ok(state) = self.get_state_loop().await {
             if self.check_state_change(&state) {
-                self.handle_state_change(state).await;
+                info!("State changed, opening video");
+                self.handle_state_change(state).await?;
             }
 
             sleep(Duration::from_millis(250)).await;
@@ -106,16 +94,15 @@ impl SpotifyClient {
         Ok(())
     }
 
-    async fn handle_state_change(&mut self, state: PlaybackState) {
+    async fn handle_state_change(&mut self, state: PlaybackState) -> Result<()> {
         let song = state.get_currently_playing();
-        let vid = self.yt_client.get_song_vid(song).await;
-        let Ok(vid) = vid else {
-            return;
-        };
+        let vid = self.yt_client.get_song_vid(song).await?;
+
         match open::that(vid) {
-            Ok(_) => println!("Opened {}", state.get_currently_playing()),
-            Err(e) => println!("Error opening video: {e:?}"),
+            Ok(_) => info!("Opened {}", state.get_currently_playing()),
+            Err(e) => error!("Error opening video: {e:?}"),
         }
+        Ok(())
     }
 
     fn check_state_change(&mut self, state: &PlaybackState) -> bool {
@@ -136,6 +123,7 @@ impl SpotifyClient {
 
 impl EnvVars {
     fn load_vars() -> Self {
+        info!("Loading environment variables");
         dotenv().ok();
 
         let callback_url = std::env::var("SPOTIFY_CALLBACK_URL")
