@@ -67,12 +67,9 @@ impl SpotifyClient {
             .get("https://api.spotify.com/v1/me/player")
             .headers(headers)
             .send()
-            .await;
+            .await
+            .map_err(ClientError::ReqwestError)?;
 
-        let res = match res {
-            Ok(res) => res,
-            Err(e) => return Err(ClientError::ReqwestError(e)),
-        };
         if res.status() == 204 {
             return Err(ClientError::NoStateError("No state available".to_string()));
         }
@@ -117,7 +114,7 @@ impl SpotifyClient {
             return;
         };
         match open::that(vid) {
-            Ok(_) => println!("Opened video"),
+            Ok(_) => println!("Opened {}", state.get_currently_playing()),
             Err(e) => println!("Error opening video: {:?}", e),
         }
     }

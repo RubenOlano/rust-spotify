@@ -3,6 +3,28 @@ use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 use spotify_music_vid::Song;
 
+impl PlaybackState {
+    pub fn is_diff(&self, other: &PlaybackState) -> bool {
+        self.item.id != other.item.id
+    }
+
+    pub fn get_currently_playing(&self) -> Song {
+        let item = &self.item;
+        return Song::new(item.name.clone(), item.artists[0].name.clone());
+    }
+}
+
+impl Display for PlaybackState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let item = &self.item;
+        write!(
+            f,
+            "Currently playing: {} by {}",
+            item.name, item.artists[0].name
+        )
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PlaybackState {
     pub(crate) device: Device,
@@ -114,29 +136,4 @@ pub struct Image {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ExternalIds {
     pub(crate) isrc: String,
-}
-
-impl PlaybackState {
-    pub fn is_diff(&self, other: &PlaybackState) -> bool {
-        self.item.id != other.item.id
-    }
-
-    pub fn get_currently_playing(&self) -> Song {
-        let item = &self.item;
-        return Song {
-            name: item.name.clone(),
-            artist: item.artists[0].name.clone(),
-        };
-    }
-}
-
-impl Display for PlaybackState {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let item = &self.item;
-        write!(
-            f,
-            "Currently playing: {} by {}",
-            item.name, item.artists[0].name
-        )
-    }
 }

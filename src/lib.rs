@@ -1,4 +1,4 @@
-use std::{io::stdin, str::FromStr};
+use std::{fmt::Display, io::stdin, str::FromStr};
 
 use spotify_oauth::{SpotifyAuth, SpotifyCallback, SpotifyScope, SpotifyToken};
 
@@ -76,4 +76,16 @@ fn parse_token_res() -> SpotifyCallback {
 pub struct Song {
     pub name: String,
     pub artist: String,
+}
+
+impl Song {
+    pub fn new(name: String, artist: String) -> Self {
+        Song { name, artist }
+    }
+}
+
+impl Display for Song {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} by {}", self.name, self.artist)
+    }
 }
