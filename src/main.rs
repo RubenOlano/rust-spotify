@@ -10,11 +10,11 @@ use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
 async fn main() {
-    color_eyre::install().unwrap();
-    init().unwrap();
+    color_eyre::install().expect("Error installing color_eyre");
+    init().expect("Error initializing tracing");
     info!("Start unwrapping auth");
-    let auth = get_auth().unwrap();
-    get_token(&auth).await.unwrap();
+    let auth = get_auth().expect("Error getting auth");
+    let token = get_token(&auth).await.expect("Error getting token");
 
     let mut client = match SpotifyClient::new(auth) {
         Ok(client) => client,
