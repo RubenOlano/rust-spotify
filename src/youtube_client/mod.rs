@@ -24,14 +24,13 @@ impl YoutubeClient {
         })
     }
 
-    pub async fn get_song_vid(&self, song: Song) -> Result<String> {
+    pub async fn get_song_vid(&self, song: &Song) -> Result<String> {
         let query = format!("{} {} music video", song.artist, song.name);
-
-        let res = self.send_req(&query).await?;
+        let res = self.send_req(&query, song).await?;
         Ok(res)
     }
 
-    async fn send_req(&self, query: &str) -> Result<String> {
+    async fn send_req(&self, query: &str, song: &Song) -> Result<String> {
         let headers = get_headers()?;
 
         let res = self
@@ -46,13 +45,13 @@ impl YoutubeClient {
             .send()
             .await?;
 
-        let res = self.parse_res(res).await?;
+        let res = self.parse_res(res, song).await?;
         Ok(res)
     }
 
-    async fn parse_res(&self, res: reqwest::Response) -> Result<String> {
+    async fn parse_res(&self, res: reqwest::Response, song: &Song) -> Result<String> {
         let res: ListResponse = res.json().await?;
-        Ok(res.get_vid_url())
+        Ok(res.get_vid_url(song))
     }
 }
 

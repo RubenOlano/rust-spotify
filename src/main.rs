@@ -14,9 +14,9 @@ async fn main() {
     init().unwrap();
     info!("Start unwrapping auth");
     let auth = get_auth().unwrap();
-    let token = get_token(&auth).await.unwrap();
+    get_token(&auth).await.unwrap();
 
-    let mut client = match SpotifyClient::new(auth, token) {
+    let mut client = match SpotifyClient::new(auth) {
         Ok(client) => client,
         Err(e) => {
             println!("Error creating client");

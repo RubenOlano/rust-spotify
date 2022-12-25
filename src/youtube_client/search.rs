@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use spotify_music_vid::Song;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ListResponse {
@@ -73,8 +74,9 @@ impl ListResponse {
         self.items[0].id.video_id.clone()
     }
 
-    pub fn get_vid_url(&self) -> String {
+    pub fn get_vid_url(&self, song: &Song) -> String {
         let video_id = self.get_video_id();
-        format!("https://www.youtube.com/watch?v={video_id}")
+        let duration = song.progress;
+        format!("https://www.youtube.com/watch?v={video_id}&t={duration}")
     }
 }

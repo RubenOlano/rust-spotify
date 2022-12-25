@@ -1,46 +1,37 @@
 use color_eyre::eyre::{Error, Result};
-use dotenv::dotenv;
-use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
-use spotify_oauth::{SpotifyAuth, SpotifyToken};
+use rspotify::{
+    model::{AdditionalType, CurrentlyPlayingContext, Market, PlayableItem},
+    prelude::OAuthClient,
+    AuthCodeSpotify,
+};
+use spotify_music_vid::Song;
 use tokio::time::{sleep, Duration};
-use tracing::{error, info};
-use url::Url;
+use tracing::{error, info, warn};
 
-use crate::{player_state::PlaybackState, youtube_client::YoutubeClient};
+use crate::youtube_client::YoutubeClient;
 
 #[derive(Debug, Clone)]
-struct EnvVars {
-    callback_url: String,
-}
-
-#[derive(Debug)]
 pub struct SpotifyClient {
-    pub token: SpotifyToken,
-    pub client_id: String,
-    pub client_secret: String,
-    callback_url: Url,
-    prev_state: Option<PlaybackState>,
+    pub spotify: AuthCodeSpotify,
     yt_client: YoutubeClient,
+    prev_state: Option<CurrentlyPlayingContext>,
 }
 
 impl SpotifyClient {
     /// # Panics
     ///
     /// Panics if the environment variables are not set
-    pub fn new(auth: SpotifyAuth, token: SpotifyToken) -> Result<Self> {
+    pub fn new(auth: AuthCodeSpotify) -> Result<Self> {
         info!("Creating new SpotifyClient and loading environment variables");
-        let env_vars = EnvVars::load_vars();
+        let yt_client = YoutubeClient::new()?;
         Ok(Self {
-            token,
-            client_id: auth.client_id,
-            client_secret: auth.client_secret,
-            callback_url: Url::parse(&env_vars.callback_url)?,
+            spotify: auth,
+            yt_client,
             prev_state: None,
-            yt_client: YoutubeClient::new()?,
         })
     }
 
-    async fn get_state_loop(&mut self) -> Result<PlaybackState> {
+    async fn get_state_loop(&mut self) -> Result<CurrentlyPlayingContext> {
         let mut state = self.get_state().await;
         while let Err(ref e) = state {
             println!("Something went wrong, retrying in 5 seconds");
@@ -51,34 +42,23 @@ impl SpotifyClient {
         state
     }
 
-    async fn get_state(&self) -> Result<PlaybackState> {
-        let client = reqwest::Client::new();
-        let headers = self.get_headers()?;
-        let res = client
-            .get("https://api.spotify.com/v1/me/player")
-            .headers(headers)
-            .send()
+    #[tracing::instrument]
+    async fn get_state(&self) -> Result<CurrentlyPlayingContext> {
+        let market = Market::Country(rspotify::model::Country::UnitedStates);
+
+        let add = AdditionalType::Track;
+
+        let res = self
+            .spotify
+            .current_playing(Some(market), Some(vec![&add]))
             .await?;
-
-        if res.status() == 204 {
-            info!("No state found, fetch again");
-            return Err(Error::msg("No state"));
+        match res {
+            Some(context) => Ok(context),
+            None => {
+                warn!("No response found");
+                Err(Error::msg("No context"))
+            }
         }
-
-        let state = res.json::<PlaybackState>().await?;
-        Ok(state)
-    }
-
-    fn get_headers(&self) -> Result<HeaderMap> {
-        info!("Getting headers");
-        let token_string: HeaderValue = format!("Bearer {}", self.token.access_token).parse()?;
-
-        let json: HeaderValue = "application/json".parse()?;
-
-        let mut headers = HeaderMap::new();
-        headers.insert(AUTHORIZATION, token_string);
-        headers.insert(CONTENT_TYPE, json);
-        Ok(headers)
     }
 
     pub async fn start_polling(&mut self) -> Result<()> {
@@ -94,63 +74,72 @@ impl SpotifyClient {
         Ok(())
     }
 
-    async fn handle_state_change(&mut self, state: PlaybackState) -> Result<()> {
-        let song = state.get_currently_playing();
-        let vid = self.yt_client.get_song_vid(song).await?;
+    async fn handle_state_change(&mut self, state: CurrentlyPlayingContext) -> Result<()> {
+        let song = Song::from_context(state)?;
+        let vid = self.yt_client.get_song_vid(&song).await?;
 
         match open::that(vid) {
-            Ok(_) => info!("Opened {}", state.get_currently_playing()),
+            Ok(_) => info!("Opened {}", song),
             Err(e) => error!("Error opening video: {e:?}"),
         }
         Ok(())
     }
 
-    fn check_state_change(&mut self, state: &PlaybackState) -> bool {
-        if let Some(prev_state) = &self.prev_state {
-            if prev_state.is_diff(state) {
-                self.update_state(state);
-                return true;
+    fn check_state_change(&mut self, state: &CurrentlyPlayingContext) -> bool {
+        if self.prev_state.is_none() {
+            self.update_state(state);
+            return true;
+        }
+
+        let prev = match self.prev_state.as_ref() {
+            Some(prev) => prev,
+            None => {
+                warn!("Previous state was None");
+                return false;
             }
-            return false;
-        }
-        self.update_state(state);
-        true
-    }
-
-    fn update_state(&mut self, state: &PlaybackState) {
-        self.prev_state = Some(state.clone());
-    }
-}
-
-impl EnvVars {
-    fn load_vars() -> Self {
-        info!("Loading environment variables");
-        dotenv().ok();
-
-        let callback_url = std::env::var("SPOTIFY_CALLBACK_URL")
-            .map_or_else(|_| "http://localhost:8888/callback".to_string(), |v| v);
-
-        Self { callback_url }
-    }
-}
-
-impl Clone for SpotifyClient {
-    fn clone(&self) -> Self {
-        let clone_token = SpotifyToken {
-            access_token: self.token.access_token.clone(),
-            token_type: self.token.token_type.clone(),
-            scope: self.token.scope.clone(),
-            expires_in: self.token.expires_in,
-            refresh_token: self.token.refresh_token.clone(),
-            expires_at: self.token.expires_at,
         };
-        Self {
-            token: clone_token,
-            client_id: self.client_id.clone(),
-            client_secret: self.client_secret.clone(),
-            callback_url: self.callback_url.clone(),
-            prev_state: None,
-            yt_client: self.yt_client.clone(),
+
+        let prev_item = match &prev.item {
+            Some(item) => item,
+            None => {
+                warn!("Previous item was None");
+                return false;
+            }
+        };
+
+        let curr_item = match &state.item {
+            Some(item) => item,
+            None => {
+                warn!("Current item was None");
+                return false;
+            }
+        };
+
+        let prev_track = match prev_item {
+            PlayableItem::Track(track) => track,
+            PlayableItem::Episode(_) => {
+                warn!("Previous item was an episode");
+                return false;
+            }
+        };
+
+        let curr_track = match curr_item {
+            PlayableItem::Track(track) => track,
+            PlayableItem::Episode(_) => {
+                warn!("Current item was an episode");
+                return false;
+            }
+        };
+
+        if prev_track.name != curr_track.name {
+            self.update_state(state);
+            true
+        } else {
+            false
         }
+    }
+
+    fn update_state(&mut self, state: &CurrentlyPlayingContext) {
+        self.prev_state = Some(state.clone());
     }
 }
