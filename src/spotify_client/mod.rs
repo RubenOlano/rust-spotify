@@ -3,7 +3,7 @@ use dotenv::dotenv;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use spotify_oauth::{SpotifyAuth, SpotifyToken};
 use tokio::time::{sleep, Duration};
-use tracing::{error, info, instrument};
+use tracing::{error, info};
 use url::Url;
 
 use crate::{player_state::PlaybackState, youtube_client::YoutubeClient};

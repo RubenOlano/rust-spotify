@@ -53,7 +53,10 @@ fn get_buffer() -> String {
     loop {
         match stdin().read_line(&mut buffer) {
             Ok(_) => return buffer,
-            Err(e) => println!("Error reading line: {e}, please try again"),
+            Err(e) => {
+                warn!("Error reading line: {e} retrying");
+                println!("Error reading line: , please try again")
+            }
         }
     }
 }
@@ -63,7 +66,10 @@ fn parse_token_res() -> SpotifyCallback {
         let buffer = get_buffer();
         match SpotifyCallback::from_str(buffer.trim()) {
             Ok(token) => return token,
-            Err(e) => println!("Error parsing token: {e}, please try again"),
+            Err(e) => {
+                warn!("Error parsing token: {e} retrying");
+                println!("Error parsing token, please try again")
+            }
         }
     }
 }
