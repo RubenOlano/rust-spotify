@@ -10,7 +10,7 @@ impl PlaybackState {
 
     pub fn get_currently_playing(&self) -> Song {
         let item = &self.item;
-        return Song::new(item.name.clone(), item.artists[0].name.clone());
+        Song::new(item.name.clone(), item.artists[0].name.clone())
     }
 }
 

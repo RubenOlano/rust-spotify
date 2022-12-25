@@ -13,12 +13,12 @@ async fn main() {
     let mut client = match SpotifyClient::new(auth, token).await {
         Ok(client) => client,
         Err(e) => {
-            println!("Error creating client: {:?}", e);
+            println!("Error creating client: {e:?}");
             return;
         }
     };
     match client.start_polling().await {
         Ok(_) => println!("Done"),
-        Err(e) => println!("Error: {:?}", e),
+        Err(e) => println!("Error: {e:?}"),
     }
 }

@@ -6,12 +6,12 @@ pub async fn get_auth() -> SpotifyAuth {
     dotenv::dotenv().ok();
     let client_id = match std::env::var("SPOTIFY_CLIENT_ID") {
         Ok(id) => id,
-        Err(e) => panic!("Error getting client_id: {}", e),
+        Err(e) => panic!("Error getting client_id: {e}"),
     };
 
     let client_secret = match std::env::var("SPOTIFY_CLIENT_SECRET") {
         Ok(secret) => secret,
-        Err(e) => panic!("Error getting client_secret: {}", e),
+        Err(e) => panic!("Error getting client_secret: {e}"),
     };
 
     SpotifyAuth::new(
@@ -30,11 +30,11 @@ pub async fn get_auth() -> SpotifyAuth {
 pub async fn get_token(auth: &SpotifyAuth) -> SpotifyToken {
     let auth_url = match auth.authorize_url() {
         Ok(url) => url,
-        Err(e) => panic!("Error with url: {}", e),
+        Err(e) => panic!("Error with url: {e}"),
     };
     match open::that(auth_url) {
         Ok(_) => println!("Opened url in browser. Please login and copy the url from the browser"),
-        Err(e) => panic!("Error: {}", e),
+        Err(e) => panic!("Error: {e}"),
     }
 
     let token = parse_token_res();
@@ -48,7 +48,7 @@ pub async fn get_token(auth: &SpotifyAuth) -> SpotifyToken {
         .await
     {
         Ok(token) => token,
-        Err(e) => panic!("Error converting into token: {}", e),
+        Err(e) => panic!("Error converting into token: {e}"),
     }
 }
 
@@ -57,7 +57,7 @@ fn get_buffer() -> String {
     loop {
         match stdin().read_line(&mut buffer) {
             Ok(_) => return buffer,
-            Err(e) => println!("Error reading line: {}, please try again", e),
+            Err(e) => println!("Error reading line: {e}, please try again"),
         }
     }
 }
@@ -67,7 +67,7 @@ fn parse_token_res() -> SpotifyCallback {
         let buffer = get_buffer();
         match SpotifyCallback::from_str(buffer.trim()) {
             Ok(token) => return token,
-            Err(e) => println!("Error parsing token: {}, please try again", e),
+            Err(e) => println!("Error parsing token: {e}, please try again"),
         }
     }
 }
@@ -79,7 +79,7 @@ pub struct Song {
 }
 
 impl Song {
-    pub fn new(name: String, artist: String) -> Self {
+    #[must_use] pub fn new(name: String, artist: String) -> Self {
         Song { name, artist }
     }
 }

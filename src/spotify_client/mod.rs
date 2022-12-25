@@ -52,7 +52,7 @@ impl SpotifyClient {
     async fn get_state_loop(&mut self) -> Result<PlaybackState, ClientError> {
         let mut state = self.get_state().await;
         while let Err(e) = state {
-            println!("Error getting state: {:?}", e);
+            println!("Error getting state: {e:?}");
             println!("Retrying in 5 seconds");
             sleep(Duration::from_secs(5)).await;
             state = self.get_state().await;
@@ -75,10 +75,10 @@ impl SpotifyClient {
         }
 
         let state = res.json::<PlaybackState>().await;
-        return match state {
+        match state {
             Ok(state) => Ok(state),
             Err(e) => Err(ClientError::ReqwestError(e)),
-        };
+        }
     }
 
     fn get_headers(&self) -> Result<HeaderMap, ClientError> {
@@ -115,13 +115,13 @@ impl SpotifyClient {
         };
         match open::that(vid) {
             Ok(_) => println!("Opened {}", state.get_currently_playing()),
-            Err(e) => println!("Error opening video: {:?}", e),
+            Err(e) => println!("Error opening video: {e:?}"),
         }
     }
 
     fn check_state_change(&mut self, state: &PlaybackState) -> bool {
         if let Some(prev_state) = &self.prev_state {
-            if prev_state.is_diff(&state) {
+            if prev_state.is_diff(state) {
                 self.update_state(state);
                 return true;
             }
@@ -144,7 +144,7 @@ impl EnvVars {
             Err(_) => "http://localhost:8000/callback".to_string(),
         };
 
-        return EnvVars { callback_url };
+        EnvVars { callback_url }
     }
 }
 

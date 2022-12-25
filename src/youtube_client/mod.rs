@@ -6,7 +6,7 @@ use reqwest::{
 };
 use spotify_music_vid::Song;
 
-use self::search::*;
+use self::search::SearchListResponse;
 
 #[derive(Debug)]
 pub enum ClientError {
@@ -45,7 +45,7 @@ impl YoutubeClient {
             .headers(headers)
             .query(&[
                 ("part", "snippet"),
-                ("q", &query),
+                ("q", query),
                 ("key", self.api_key.as_str()),
             ])
             .send()
