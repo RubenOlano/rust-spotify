@@ -6,7 +6,9 @@ use tracing::{info, warn};
 
 /// # Panics
 /// Panics if the environment variables are not set
-#[must_use]
+/// requires `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET`
+/// # Errors
+/// Returns an error if the environment variables are not set
 pub fn get_auth() -> Result<SpotifyAuth> {
     info!("Getting env variables");
     dotenv::dotenv().ok();
@@ -29,6 +31,9 @@ pub fn get_auth() -> Result<SpotifyAuth> {
 
 /// # Panics
 /// Panics if the environment variables are not set
+/// requires `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET`
+/// # Errors
+/// Returns an error if the environment variables are not set
 pub async fn get_token(auth: &SpotifyAuth) -> Result<SpotifyToken> {
     let auth_url = auth.authorize_url()?;
 
@@ -55,7 +60,7 @@ fn get_buffer() -> String {
             Ok(_) => return buffer,
             Err(e) => {
                 warn!("Error reading line: {e} retrying");
-                println!("Error reading line: , please try again")
+                println!("Error reading line: , please try again");
             }
         }
     }
@@ -68,7 +73,7 @@ fn parse_token_res() -> SpotifyCallback {
             Ok(token) => return token,
             Err(e) => {
                 warn!("Error parsing token: {e} retrying");
-                println!("Error parsing token, please try again")
+                println!("Error parsing token, please try again");
             }
         }
     }
