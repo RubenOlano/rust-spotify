@@ -22,7 +22,7 @@ pub struct YoutubeClient {
 }
 
 impl YoutubeClient {
-    pub async fn new() -> Result<Self, ClientError> {
+    pub fn new() -> Result<Self, ClientError> {
         Ok(Self {
             client: reqwest::Client::new(),
             api_key: get_env_var()?,

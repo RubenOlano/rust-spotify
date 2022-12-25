@@ -2,7 +2,8 @@ use std::{fmt::Display, io::stdin, str::FromStr};
 
 use spotify_oauth::{SpotifyAuth, SpotifyCallback, SpotifyScope, SpotifyToken};
 
-#[must_use] pub fn get_auth() -> SpotifyAuth {
+#[must_use]
+pub fn get_auth() -> SpotifyAuth {
     dotenv::dotenv().ok();
     let client_id = match std::env::var("SPOTIFY_CLIENT_ID") {
         Ok(id) => id,

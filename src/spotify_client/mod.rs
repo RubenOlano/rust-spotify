@@ -43,9 +43,7 @@ impl SpotifyClient {
             callback_url: Url::parse(&env_vars.callback_url)
                 .map_err(|e| ClientError::CreatedError(e.to_string()))?,
             prev_state: None,
-            yt_client: YoutubeClient::new()
-                .await
-                .map_err(ClientError::YoutubeError)?,
+            yt_client: YoutubeClient::new().map_err(ClientError::YoutubeError)?,
         })
     }
 
