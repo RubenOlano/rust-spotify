@@ -12,7 +12,7 @@ use tracing::info;
 /// requires `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET`
 /// # Errors
 /// Returns an error if the environment variables are not set
-pub fn get_auth() -> Result<SpotifyAuth> {
+pub fn get_auth() -> Result<AuthCodeSpotify> {
     info!("Getting env variables");
     dotenv::dotenv().ok();
     let client_id = std::env::var("SPOTIFY_CLIENT_ID")?;
@@ -34,49 +34,14 @@ pub fn get_auth() -> Result<SpotifyAuth> {
 /// requires `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET`
 /// # Errors
 /// Returns an error if the environment variables are not set
-pub async fn get_token(auth: &SpotifyAuth) -> Result<SpotifyToken> {
-    let auth_url = auth.authorize_url()?;
+pub async fn get_token(auth: &AuthCodeSpotify) -> Result<()> {
+    let auth_url = auth.get_authorize_url(true)?;
 
-    info!("Opening browser to {auth_url}");
-    open::that(auth_url)?;
+    auth.prompt_for_token(&auth_url).await?;
 
-    let token = parse_token_res();
-
-    info!("Converting into token");
-    Ok(token
-        .convert_into_token(
-            auth.client_id.clone(),
-            auth.client_secret.clone(),
-            auth.redirect_uri.clone(),
-        )
-        .await?)
-}
-
-fn get_buffer() -> String {
-    info!("Getting buffer");
-    let mut buffer = String::new();
-    loop {
-        match stdin().read_line(&mut buffer) {
-            Ok(_) => return buffer,
-            Err(e) => {
-                warn!("Error reading line: {e} retrying");
-                println!("Error reading line: , please try again");
-            }
-        }
-    }
-}
-
-fn parse_token_res() -> SpotifyCallback {
-    loop {
-        let buffer = get_buffer();
-        match <SpotifyCallback as std::str::FromStr>::from_str(buffer.trim()) {
-            Ok(token) => return token,
-            Err(e) => {
-                warn!("Error parsing token: {e} retrying");
-                println!("Error parsing token, please try again");
-            }
-        }
-    }
+    info!("Caching token");
+    auth.write_token_cache().await?;
+    Ok(())
 }
 
 #[derive(Debug, Clone)]

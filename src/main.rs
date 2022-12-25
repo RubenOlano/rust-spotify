@@ -1,4 +1,3 @@
-mod player_state;
 mod spotify_client;
 mod youtube_client;
 
@@ -9,36 +8,32 @@ use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
-async fn main() {
-    color_eyre::install().expect("Error installing color_eyre");
-    init().expect("Error initializing tracing");
-    info!("Start unwrapping auth");
-    let auth = get_auth().expect("Error getting auth");
-    let token = get_token(&auth).await.expect("Error getting token");
-
-    let mut client = match SpotifyClient::new(auth) {
-        Ok(client) => client,
-        Err(e) => {
-            println!("Error creating client");
-            error!("Error creating client: {e:?}");
-            return;
-        }
-    };
-    match client.start_polling().await {
-        Ok(_) => println!("Done"),
-        Err(e) => {
-            println!("Something went wrong when polling");
-            error!("Error polling: {e:?}");
-        }
+async fn main() -> Result<()> {
+    if let Err(e) = run_program().await {
+        error!("Error: {}", e);
+        println!("Error encountered during execution, see logs for more info");
     }
+    Ok(())
 }
 
 fn init() -> Result<()> {
+    color_eyre::install()?;
     dotenv::dotenv()?;
     let subscriber = FmtSubscriber::builder()
         .with_max_level(Level::TRACE)
         .finish();
 
     tracing::subscriber::set_global_default(subscriber)?;
+    Ok(())
+}
+
+async fn run_program() -> Result<()> {
+    init()?;
+    info!("Start unwrapping auth");
+    let auth = get_auth()?;
+    get_token(&auth).await?;
+
+    let mut client = SpotifyClient::new(auth)?;
+    client.start_polling().await?;
     Ok(())
 }
