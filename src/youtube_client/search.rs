@@ -26,7 +26,7 @@ pub struct Item {
 pub struct Id {
     pub(crate) kind: String,
     #[serde(rename = "videoId")]
-    pub(crate) video_id: String,
+    pub(crate) video_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -71,7 +71,11 @@ pub struct PageInfo {
 
 impl ListResponse {
     fn get_video_id(&self) -> String {
-        self.items[0].id.video_id.clone()
+        if let Some(video_id) = &self.items[0].id.video_id {
+            return video_id.clone();
+        }
+        tracing::error!("No video id found");
+        "CJtvnepMVAU".to_string()
     }
 
     pub fn get_vid_url(&self, song: &Song) -> String {

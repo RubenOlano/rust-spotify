@@ -1,33 +1,42 @@
 use color_eyre::eyre::{Error, Result};
+use futures_util::{stream::SplitSink, SinkExt};
 use rspotify::{
     model::{AdditionalType, CurrentlyPlayingContext, Market, PlayableItem},
     prelude::OAuthClient,
     AuthCodeSpotify,
 };
 use spotify_music_vid::Song;
-use tokio::time::{sleep, Duration};
+use tokio::{
+    net::TcpStream,
+    time::{sleep, Duration},
+};
+use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
 use tracing::{error, info, warn};
 
 use crate::youtube_client::YoutubeClient;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SpotifyClient {
     pub spotify: AuthCodeSpotify,
     yt_client: YoutubeClient,
     prev_state: Option<CurrentlyPlayingContext>,
+    writer: SplitSink<WsStream, Message>,
 }
+type WsStream = WebSocketStream<TcpStream>;
 
 impl SpotifyClient {
     /// # Panics
     ///
     /// Panics if the environment variables are not set
-    pub fn new(auth: AuthCodeSpotify) -> Result<Self> {
+    pub fn new(auth: AuthCodeSpotify, writer: SplitSink<WsStream, Message>) -> Result<Self> {
         info!("Creating new SpotifyClient and loading environment variables");
         let yt_client = YoutubeClient::new()?;
+
         Ok(Self {
             spotify: auth,
             yt_client,
             prev_state: None,
+            writer,
         })
     }
 
@@ -78,10 +87,7 @@ impl SpotifyClient {
         let song = Song::from_context(state)?;
         let vid = self.yt_client.get_song_vid(&song).await?;
 
-        match open::that(vid) {
-            Ok(_) => info!("Opened {}", song),
-            Err(e) => error!("Error opening video: {e:?}"),
-        }
+        self.writer.send(Message::Text(vid)).await?;
         Ok(())
     }
 
