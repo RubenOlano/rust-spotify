@@ -1,4 +1,8 @@
 use color_eyre::Result;
+use futures_util::{
+    stream::{SplitSink, SplitStream},
+    SinkExt, StreamExt,
+};
 use rspotify::{
     model::{CurrentlyPlayingContext, PlayableItem},
     prelude::{BaseClient, OAuthClient},
@@ -6,6 +10,10 @@ use rspotify::{
 };
 use std::{fmt::Display, time::Duration};
 use tracing::info;
+use warp::ws::{Message, WebSocket};
+
+type Reader = SplitStream<WebSocket>;
+type Writer = SplitSink<WebSocket, Message>;
 
 /// # Panics
 /// Panics if the environment variables are not set
@@ -16,7 +24,6 @@ pub fn get_auth() -> Result<AuthCodeSpotify> {
     info!("Getting env variables");
     dotenv::dotenv().ok();
     let client_id = std::env::var("SPOTIFY_CLIENT_ID")?;
-
     let client_secret = std::env::var("SPOTIFY_CLIENT_SECRET")?;
 
     let creds = Credentials::new(client_id.as_str(), client_secret.as_str());
@@ -34,13 +41,29 @@ pub fn get_auth() -> Result<AuthCodeSpotify> {
 /// requires `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET`
 /// # Errors
 /// Returns an error if the environment variables are not set
-pub async fn get_token(auth: &AuthCodeSpotify) -> Result<()> {
+pub async fn get_token(
+    auth: &AuthCodeSpotify,
+    read: &mut Reader,
+    write: &mut Writer,
+) -> Result<()> {
     let auth_url = auth.get_authorize_url(true)?;
 
-    auth.prompt_for_token(&auth_url).await?;
+    info!("Sending auth url to client");
+    let msg = Message::text(auth_url.as_str());
+    write.send(msg).await?;
+    info!("Sent auth url to client");
+    // wait for the client to send the code back
+    let url = read.next().await;
+    if let Some(Ok(url)) = url {
+        let url = url.to_str().unwrap();
+        info!("Got code from client");
+        let code = auth.parse_response_code(url).unwrap();
+        auth.request_token(code.as_str()).await?;
+        auth.write_token_cache().await?;
+    } else {
+        return Err(color_eyre::eyre::eyre!("No url from client"));
+    }
 
-    info!("Caching token");
-    auth.write_token_cache().await?;
     Ok(())
 }
 

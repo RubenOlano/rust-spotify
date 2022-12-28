@@ -6,29 +6,27 @@ use rspotify::{
     AuthCodeSpotify,
 };
 use spotify_music_vid::Song;
-use tokio::{
-    net::TcpStream,
-    time::{sleep, Duration},
-};
-use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
+use tokio::time::{sleep, Duration};
 use tracing::{error, info, warn};
+use warp::ws::{Message, WebSocket};
 
 use crate::youtube_client::YoutubeClient;
+
+type Writer = SplitSink<WebSocket, Message>;
 
 #[derive(Debug)]
 pub struct SpotifyClient {
     pub spotify: AuthCodeSpotify,
     yt_client: YoutubeClient,
     prev_state: Option<CurrentlyPlayingContext>,
-    writer: SplitSink<WsStream, Message>,
+    writer: Writer,
 }
-type WsStream = WebSocketStream<TcpStream>;
 
 impl SpotifyClient {
     /// # Panics
     ///
     /// Panics if the environment variables are not set
-    pub fn new(auth: AuthCodeSpotify, writer: SplitSink<WsStream, Message>) -> Result<Self> {
+    pub fn new(auth: AuthCodeSpotify, writer: Writer) -> Result<Self> {
         info!("Creating new SpotifyClient and loading environment variables");
         let yt_client = YoutubeClient::new()?;
 
@@ -87,7 +85,7 @@ impl SpotifyClient {
         let song = Song::from_context(state)?;
         let vid = self.yt_client.get_song_vid(&song).await?;
 
-        self.writer.send(Message::Text(vid)).await?;
+        self.writer.send(Message::text(vid)).await?;
         Ok(())
     }
 

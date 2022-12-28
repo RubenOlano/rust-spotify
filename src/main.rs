@@ -3,42 +3,31 @@ mod youtube_client;
 
 use color_eyre::Result;
 use futures_util::{stream::SplitSink, StreamExt};
+use rspotify::AuthCodeSpotify;
 use spotify_client::SpotifyClient;
 use spotify_music_vid::{get_auth, get_token};
-use tokio::net::{TcpListener, TcpStream};
-use tokio_tungstenite::{
-    accept_async,
-    tungstenite::{Message, Result as WsResult},
-    WebSocketStream,
-};
-use tracing::{error, info, Level};
+use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
-
-type WsStream = WebSocketStream<TcpStream>;
+use warp::{
+    ws::{Message, WebSocket},
+    Filter,
+};
+type Writer = SplitSink<WebSocket, Message>;
 
 #[tokio::main]
-async fn main() -> WsResult<()> {
+async fn main() {
+    init().unwrap();
     // create websocket client
-    let addr = "127.0.0.1:8080";
-    let listener = TcpListener::bind(addr).await?;
+    let routes = warp::path("ws").and(warp::ws()).map(|ws: warp::ws::Ws| {
+        ws.on_upgrade(|socket| async move {
+            let (mut tx, mut rx) = socket.split();
+            let auth = get_auth().unwrap();
+            get_token(&auth, &mut rx, &mut tx).await.unwrap();
+            run_program(tx, auth).await.unwrap();
+        })
+    });
 
-    // only need to accept one connection
-    let (stream, _) = listener.accept().await?;
-    let peer = stream.peer_addr()?;
-    info!("New connection from {}", peer);
-
-    let ws_stream = accept_async(stream).await?;
-    // get the write half of the websocket stream
-    let (write, _) = ws_stream.split();
-
-    // the write will be used to send messages to the client
-    // mainly to send the youtube link to the client
-
-    if let Err(e) = run_program(write).await {
-        error!("Error: {}", e);
-        println!("Error encountered during execution, see logs for more info");
-    }
-    Ok(())
+    warp::serve(routes).run(([127, 0, 0, 1], 8080)).await;
 }
 
 fn init() -> Result<()> {
@@ -52,12 +41,7 @@ fn init() -> Result<()> {
     Ok(())
 }
 
-async fn run_program(write: SplitSink<WsStream, Message>) -> Result<()> {
-    init()?;
-    info!("Start unwrapping auth");
-    let auth = get_auth()?;
-    get_token(&auth).await?;
-
+async fn run_program(write: Writer, auth: AuthCodeSpotify) -> Result<()> {
     let mut client = SpotifyClient::new(auth, write)?;
     client.start_polling().await?;
     Ok(())
