@@ -35,13 +35,13 @@ impl YoutubeClient {
     /// # Errors
     ///
     /// This function will return an error if the request fails or if the response is not valid.
-    pub async fn get_song_vid(&self, song: &Song) -> Result<String> {
+    pub async fn get_song_vid(&self, song: &Song) -> Result<(String, String)> {
         let query = format!("{} {} music video", song.artist, song.name);
         let res = self.send_req(&query, song).await?;
         Ok(res)
     }
 
-    async fn send_req(&self, query: &str, song: &Song) -> Result<String> {
+    async fn send_req(&self, query: &str, song: &Song) -> Result<(String, String)> {
         let headers = get_headers()?;
 
         let res = self
@@ -60,7 +60,7 @@ impl YoutubeClient {
         Ok(res)
     }
 
-    async fn parse_res(&self, res: reqwest::Response, song: &Song) -> Result<String> {
+    async fn parse_res(&self, res: reqwest::Response, song: &Song) -> Result<(String, String)> {
         let res: ListResponse = res.json().await?;
         Ok(res.get_vid_url(song))
     }

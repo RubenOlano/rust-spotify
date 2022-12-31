@@ -67,16 +67,16 @@ pub async fn get_token(
     Ok(())
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, sqlx::FromRow, sqlx::Decode)]
 pub struct Song {
     pub name: String,
     pub artist: String,
-    pub progress: u32,
+    pub progress: i32,
 }
 
 impl Song {
     /// Creates a new [`Song`].
-    pub const fn new(name: String, artist: String, progress: u32) -> Self {
+    pub const fn new(name: String, artist: String, progress: i32) -> Self {
         Self {
             name,
             artist,
@@ -98,11 +98,19 @@ impl Song {
             let artist = track.artists[0].name.clone();
             let name = track.name.clone();
             let progress = ctx.progress.unwrap_or(Duration::default());
-            let progress = progress.as_secs() as u32;
+            let progress = progress.as_secs() as i32;
             Ok(Self::new(name, artist, progress))
         } else {
             Err(color_eyre::eyre::eyre!("No track in context"))
         }
+    }
+
+    pub fn get_embed_url(song_id: &str) -> String {
+        format!("https://www.youtube.com/embed/{}", song_id)
+    }
+
+    pub fn get_url_with_duration(song_id: &str, duration: &str) -> String {
+        format!("https://www.youtube.com/watch?v={}&t={}", song_id, duration)
     }
 }
 

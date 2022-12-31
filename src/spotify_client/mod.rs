@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use color_eyre::eyre::{Error, Result};
 use futures_util::{stream::SplitSink, SinkExt};
 use rspotify::{
@@ -6,34 +8,37 @@ use rspotify::{
     AuthCodeSpotify,
 };
 use spotify_music_vid::Song;
+use sqlx::{Pool, Postgres};
 use tokio::time::{sleep, Duration};
 use tracing::{error, info, warn};
 use warp::ws::{Message, WebSocket};
 
-use crate::youtube_client::YoutubeClient;
+use crate::{db::songs::SongRepository, youtube_client::YoutubeClient};
 
 type Writer = SplitSink<WebSocket, Message>;
-#[derive(Debug)]
 pub struct SpotifyClient {
     pub spotify: AuthCodeSpotify,
     yt_client: YoutubeClient,
     prev_state: Option<CurrentlyPlayingContext>,
     writer: Writer,
+    db_pool: SongRepository,
 }
 
 impl SpotifyClient {
     /// Creates a new [`SpotifyClient`].
     /// This function will also load the environment variables
     /// `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` are required
-    pub fn new(auth: AuthCodeSpotify, writer: Writer) -> Result<Self> {
+    pub fn new(auth: AuthCodeSpotify, writer: Writer, pool: Pool<Postgres>) -> Result<Self> {
         info!("Creating new SpotifyClient and loading environment variables");
         let yt_client = YoutubeClient::new()?;
+        let pool = SongRepository::new(Arc::new(pool));
 
         Ok(Self {
             spotify: auth,
             yt_client,
             prev_state: None,
             writer,
+            db_pool: pool,
         })
     }
 
@@ -84,27 +89,33 @@ impl SpotifyClient {
 
     async fn handle_state_change(&mut self, state: CurrentlyPlayingContext) -> Result<()> {
         let song = Song::from_context(state)?;
-        loop {
-            let vid = self.yt_client.get_song_vid(&song).await;
-            if let Ok(vid) = vid {
-                self.send_video(Ok(vid)).await?;
-                return Ok(());
-            }
-            self.send_video(vid).await?;
+        if let Some(song_id) = self.db_pool.get(&song).await {
+            let url = Song::get_url_with_duration(&song_id, &song.progress.to_string());
+            self.send_video(Ok(url)).await?;
+            return Ok(());
         }
+
+        let vid = self.yt_client.get_song_vid(&song).await;
+        if let Ok((url, id)) = vid {
+            self.db_pool.create(song, &id).await?;
+            self.send_video(Ok(url)).await?;
+            return Ok(());
+        }
+
+        Ok(())
     }
 
     async fn send_video(&mut self, vid: Result<String, Error>) -> Result<(), Error> {
-        Ok(match vid {
-            Ok(vid) => {
-                self.writer.send(Message::text(vid)).await?;
-                return Ok(());
-            }
+        let msg = match vid {
+            Ok(url) => url,
             Err(e) => {
-                error!("Failed to get video: {e}, retrying in 2 seconds");
-                sleep(Duration::from_secs(2)).await;
+                error!("Failed to get video: {e}");
+                "Failed to get video".to_string()
             }
-        })
+        };
+
+        self.writer.send(Message::text(msg)).await?;
+        Ok(())
     }
 
     fn check_state_change(&mut self, state: &CurrentlyPlayingContext) -> bool {

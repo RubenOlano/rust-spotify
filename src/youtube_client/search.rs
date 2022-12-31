@@ -78,9 +78,12 @@ impl ListResponse {
         "CJtvnepMVAU".to_string()
     }
 
-    pub fn get_vid_url(&self, song: &Song) -> String {
+    pub fn get_vid_url(&self, song: &Song) -> (String, String) {
         let video_id = self.get_video_id();
         let duration = song.progress;
-        format!("https://www.youtube.com/embed/{video_id}?start={duration}&autoplay=1&")
+        (
+            format!("https://www.youtube.com/embed/{video_id}?start={duration}&autoplay=1&"),
+            video_id,
+        )
     }
 }
