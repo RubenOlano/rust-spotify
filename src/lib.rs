@@ -75,13 +75,13 @@ pub async fn get_token(
 pub struct Song {
     pub name: String,
     pub artist: String,
-    pub progress: i32,
+    pub progress: i64,
 }
 
 impl Song {
     /// Creates a new [`Song`].
     #[must_use]
-    pub const fn new(name: String, artist: String, progress: i32) -> Self {
+    pub const fn new(name: String, artist: String, progress: i64) -> Self {
         Self {
             name,
             artist,
@@ -103,7 +103,7 @@ impl Song {
             let artist = track.artists[0].name.clone();
             let name = track.name;
             let progress = ctx.progress.unwrap_or_default();
-            let progress = progress.as_secs() as i32;
+            let progress = progress.as_secs() as i64;
             Ok(Self::new(name, artist, progress))
         } else {
             Err(color_eyre::eyre::eyre!("No track in context"))

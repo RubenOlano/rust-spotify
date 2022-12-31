@@ -62,12 +62,11 @@ impl SpotifyClient {
             .spotify
             .current_playing(Some(market), Some(vec![&add]))
             .await?;
-        match res {
-            Some(context) => Ok(context),
-            None => {
-                warn!("No response found");
-                Err(Error::msg("No context"))
-            }
+        if let Some(context) = res {
+            Ok(context)
+        } else {
+            warn!("No response found");
+            Err(Error::msg("No context"))
         }
     }
 
