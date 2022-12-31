@@ -62,12 +62,13 @@ impl SpotifyClient {
             .spotify
             .current_playing(Some(market), Some(vec![&add]))
             .await?;
-        if let Some(context) = res {
-            Ok(context)
-        } else {
-            warn!("No response found");
-            Err(Error::msg("No context"))
-        }
+        res.map_or_else(
+            || {
+                warn!("No song is currently playing");
+                Err(color_eyre::eyre::eyre!("No song is currently playing"))
+            },
+            |context| Ok(context),
+        )
     }
 
     /// Returns the start polling of this [`SpotifyClient`].
@@ -126,12 +127,11 @@ impl SpotifyClient {
             return true;
         }
 
-        let prev = match self.prev_state.as_ref() {
-            Some(prev) => prev,
-            None => {
-                warn!("Previous state was None");
-                return false;
-            }
+        let prev = if let Some(prev) = self.prev_state.as_ref() {
+            prev
+        } else {
+            warn!("Previous state was None");
+            return false;
         };
 
         let prev_item = match &prev.item {
@@ -166,11 +166,11 @@ impl SpotifyClient {
             }
         };
 
-        if prev_track.name != curr_track.name {
+        if prev_track.name == curr_track.name {
+            false
+        } else {
             self.update_state(state);
             true
-        } else {
-            false
         }
     }
 
