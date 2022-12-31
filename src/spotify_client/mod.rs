@@ -67,7 +67,7 @@ impl SpotifyClient {
                 warn!("No song is currently playing");
                 Err(color_eyre::eyre::eyre!("No song is currently playing"))
             },
-            |context| Ok(context),
+            Ok,
         )
     }
 
@@ -122,12 +122,11 @@ impl SpotifyClient {
     }
 
     fn check_state_change(&mut self, state: &CurrentlyPlayingContext) -> bool {
-        let prev = match self.prev_state.as_ref() {
-            Some(prev) => prev,
-            None => {
-                warn!("Previous state was None");
-                return false;
-            }
+        let prev = if let Some(prev) = self.prev_state.as_ref() {
+            prev
+        } else {
+            warn!("Previous state was None");
+            return false;
         };
 
         let prev_item = match &prev.item {
