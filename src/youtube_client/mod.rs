@@ -17,6 +17,11 @@ pub struct YoutubeClient {
 }
 
 impl YoutubeClient {
+    /// Creates a new [`YoutubeClient`].
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the environment variable `YOUTUBE_API_KEY` is not set.
     pub fn new() -> Result<Self> {
         Ok(Self {
             client: reqwest::Client::new(),
@@ -24,6 +29,12 @@ impl YoutubeClient {
         })
     }
 
+    /// Gets the video url for a song given [`Song`].
+    /// This function will search for the song on youtube and return the first result.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the request fails or if the response is not valid.
     pub async fn get_song_vid(&self, song: &Song) -> Result<String> {
         let query = format!("{} {} music video", song.artist, song.name);
         let res = self.send_req(&query, song).await?;
@@ -52,6 +63,12 @@ impl YoutubeClient {
     async fn parse_res(&self, res: reqwest::Response, song: &Song) -> Result<String> {
         let res: ListResponse = res.json().await?;
         Ok(res.get_vid_url(song))
+    }
+}
+
+impl Default for YoutubeClient {
+    fn default() -> Self {
+        Self::new().unwrap()
     }
 }
 

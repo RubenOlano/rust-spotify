@@ -81,6 +81,6 @@ impl ListResponse {
     pub fn get_vid_url(&self, song: &Song) -> String {
         let video_id = self.get_video_id();
         let duration = song.progress;
-        format!("https://www.youtube.com/watch?v={video_id}&t={duration}")
+        format!("https://www.youtube.com/embed/{video_id}?start={duration}&autoplay=1&")
     }
 }

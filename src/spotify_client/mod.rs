@@ -1,5 +1,7 @@
+use std::sync::Arc;
+
 use color_eyre::eyre::{Error, Result};
-use futures_util::{stream::SplitSink, SinkExt};
+use futures_util::{lock::Mutex, stream::SplitSink, SinkExt};
 use rspotify::{
     model::{AdditionalType, CurrentlyPlayingContext, Market, PlayableItem},
     prelude::OAuthClient,
@@ -10,23 +12,24 @@ use tokio::time::{sleep, Duration};
 use tracing::{error, info, warn};
 use warp::ws::{Message, WebSocket};
 
-use crate::youtube_client::YoutubeClient;
+use crate::{lru::LRU, youtube_client::YoutubeClient};
 
 type Writer = SplitSink<WebSocket, Message>;
-
+type Cache = Arc<Mutex<LRU<Song, String>>>;
 #[derive(Debug)]
 pub struct SpotifyClient {
     pub spotify: AuthCodeSpotify,
     yt_client: YoutubeClient,
     prev_state: Option<CurrentlyPlayingContext>,
     writer: Writer,
+    cache: Cache,
 }
 
 impl SpotifyClient {
-    /// # Panics
-    ///
-    /// Panics if the environment variables are not set
-    pub fn new(auth: AuthCodeSpotify, writer: Writer) -> Result<Self> {
+    /// Creates a new [`SpotifyClient`].
+    /// This function will also load the environment variables
+    /// `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` are required
+    pub fn new(auth: AuthCodeSpotify, writer: Writer, cache: Cache) -> Result<Self> {
         info!("Creating new SpotifyClient and loading environment variables");
         let yt_client = YoutubeClient::new()?;
 
@@ -35,6 +38,7 @@ impl SpotifyClient {
             yt_client,
             prev_state: None,
             writer,
+            cache,
         })
     }
 
@@ -49,7 +53,6 @@ impl SpotifyClient {
         state
     }
 
-    #[tracing::instrument]
     async fn get_state(&self) -> Result<CurrentlyPlayingContext> {
         let market = Market::Country(rspotify::model::Country::UnitedStates);
 
@@ -68,6 +71,9 @@ impl SpotifyClient {
         }
     }
 
+    /// Returns the start polling of this [`SpotifyClient`].
+    /// This function will check if the state has changed every 250 milliseconds.
+    /// If the state has changed, it will send the video url to the client.
     pub async fn start_polling(&mut self) -> Result<()> {
         info!("Starting polling");
         while let Ok(state) = self.get_state_loop().await {
@@ -83,10 +89,35 @@ impl SpotifyClient {
 
     async fn handle_state_change(&mut self, state: CurrentlyPlayingContext) -> Result<()> {
         let song = Song::from_context(state)?;
-        let vid = self.yt_client.get_song_vid(&song).await?;
 
-        self.writer.send(Message::text(vid)).await?;
-        Ok(())
+        let vid = self.cache.lock().await.get(&song).cloned();
+        if let Some(vid) = vid {
+            self.send_video(Ok(vid.clone())).await?;
+            return Ok(());
+        }
+
+        loop {
+            let vid = self.yt_client.get_song_vid(&song).await;
+            if let Ok(vid) = vid {
+                self.cache.lock().await.insert(song.clone(), vid.clone());
+                self.send_video(Ok(vid)).await?;
+                return Ok(());
+            }
+            self.send_video(vid).await?;
+        }
+    }
+
+    async fn send_video(&mut self, vid: Result<String, Error>) -> Result<(), Error> {
+        Ok(match vid {
+            Ok(vid) => {
+                self.writer.send(Message::text(vid)).await?;
+                return Ok(());
+            }
+            Err(e) => {
+                error!("Failed to get video: {e}, retrying in 2 seconds");
+                sleep(Duration::from_secs(2)).await;
+            }
+        })
     }
 
     fn check_state_change(&mut self, state: &CurrentlyPlayingContext) -> bool {

@@ -1,3 +1,5 @@
+mod lru;
+
 use color_eyre::Result;
 use futures_util::{
     stream::{SplitSink, SplitStream},
@@ -29,7 +31,7 @@ pub fn get_auth() -> Result<AuthCodeSpotify> {
     let creds = Credentials::new(client_id.as_str(), client_secret.as_str());
 
     let mut oauth = OAuth::default();
-    oauth.redirect_uri = "http://localhost:8000/callback".to_string();
+    oauth.redirect_uri = "http://localhost:5173/callback".to_string();
 
     oauth.scopes = scopes!["user-read-currently-playing", "user-read-playback-state"];
     let spotify = AuthCodeSpotify::new(creds, oauth);
@@ -53,12 +55,12 @@ pub async fn get_token(
     write.send(msg).await?;
     info!("Sent auth url to client");
     // wait for the client to send the code back
-    let url = read.next().await;
-    if let Some(Ok(url)) = url {
-        let url = url.to_str().unwrap();
+    let code = read.next().await;
+    if let Some(Ok(code)) = code {
+        info!("Got code from client, {:?}", code.clone());
+        let code = code.to_str().unwrap();
         info!("Got code from client");
-        let code = auth.parse_response_code(url).unwrap();
-        auth.request_token(code.as_str()).await?;
+        auth.request_token(code).await?;
         auth.write_token_cache().await?;
     } else {
         return Err(color_eyre::eyre::eyre!("No url from client"));
@@ -67,7 +69,7 @@ pub async fn get_token(
     Ok(())
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Song {
     pub name: String,
     pub artist: String,
@@ -75,6 +77,7 @@ pub struct Song {
 }
 
 impl Song {
+    /// Creates a new [`Song`].
     pub const fn new(name: String, artist: String, progress: u32) -> Self {
         Self {
             name,
@@ -83,6 +86,11 @@ impl Song {
         }
     }
 
+    /// Creates a new [`Song`] from a [`CurrentlyPlayingContext`].
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the [`CurrentlyPlayingContext`] does not contain a track.
     pub fn from_context(ctx: CurrentlyPlayingContext) -> Result<Self> {
         let item = match ctx.item {
             Some(item) => item,
