@@ -1,5 +1,3 @@
-mod lru;
-
 use color_eyre::Result;
 use futures_util::{
     stream::{SplitSink, SplitStream},
