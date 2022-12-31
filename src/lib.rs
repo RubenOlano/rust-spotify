@@ -8,7 +8,7 @@ use rspotify::{
     prelude::{BaseClient, OAuthClient},
     scopes, AuthCodeSpotify, Credentials, OAuth,
 };
-use std::{fmt::Display, time::Duration};
+use std::fmt::Display;
 use tracing::info;
 use warp::ws::{Message, WebSocket};
 
@@ -76,6 +76,7 @@ pub struct Song {
 
 impl Song {
     /// Creates a new [`Song`].
+    #[must_use]
     pub const fn new(name: String, artist: String, progress: i32) -> Self {
         Self {
             name,
@@ -96,8 +97,8 @@ impl Song {
         };
         if let PlayableItem::Track(track) = item {
             let artist = track.artists[0].name.clone();
-            let name = track.name.clone();
-            let progress = ctx.progress.unwrap_or(Duration::default());
+            let name = track.name;
+            let progress = ctx.progress.unwrap_or_default();
             let progress = progress.as_secs() as i32;
             Ok(Self::new(name, artist, progress))
         } else {
@@ -105,10 +106,12 @@ impl Song {
         }
     }
 
+    #[must_use]
     pub fn get_embed_url(song_id: &str) -> String {
-        format!("https://www.youtube.com/embed/{}", song_id)
+        format!("https://www.youtube.com/embed/{song_id}")
     }
 
+    #[must_use]
     pub fn get_url_with_duration(song_id: &str, duration: &str) -> String {
         format!("https://www.youtube.com/embed/{song_id}?start={duration}&autoplay=1&")
     }
