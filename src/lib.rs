@@ -28,10 +28,11 @@ pub fn get_auth() -> Result<AuthCodeSpotify> {
 
     let creds = Credentials::new(client_id.as_str(), client_secret.as_str());
 
-    let mut oauth = OAuth::default();
-    oauth.redirect_uri = "http://localhost:5173/callback".to_string();
-
-    oauth.scopes = scopes!["user-read-currently-playing", "user-read-playback-state"];
+    let oauth = OAuth {
+        redirect_uri: "http://localhost:5173/callback".to_string(),
+        scopes: scopes!["user-read-currently-playing", "user-read-playback-state"],
+        ..Default::default()
+    };
     let spotify = AuthCodeSpotify::new(creds, oauth);
     Ok(spotify)
 }
@@ -56,7 +57,10 @@ pub async fn get_token(
     let code = read.next().await;
     if let Some(Ok(code)) = code {
         info!("Got code from client, {:?}", code.clone());
-        let code = code.to_str().unwrap();
+        let code = match code.to_str() {
+            Ok(code) => code,
+            Err(_) => return Err(color_eyre::eyre::eyre!("Could not convert code to string")),
+        };
         info!("Got code from client");
         auth.request_token(code).await?;
         auth.write_token_cache().await?;
