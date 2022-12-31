@@ -78,7 +78,7 @@ impl SpotifyClient {
         info!("Starting polling");
         while let Ok(state) = self.get_state_loop().await {
             if self.check_state_change(&state) {
-                info!("State changed, opening video");
+                info!("State changed, sending video");
                 self.handle_state_change(state).await?;
             }
 
@@ -89,7 +89,9 @@ impl SpotifyClient {
 
     async fn handle_state_change(&mut self, state: CurrentlyPlayingContext) -> Result<()> {
         let song = Song::from_context(state)?;
+        info!("Checking if song is in database");
         if let Some(song_id) = self.db_pool.get(&song).await {
+            info!("Song is in database, sending video");
             let url = Song::get_url_with_duration(&song_id, &song.progress.to_string());
             self.send_video(Ok(url)).await?;
             return Ok(());
@@ -97,6 +99,7 @@ impl SpotifyClient {
 
         let vid = self.yt_client.get_song_vid(&song).await;
         if let Ok((url, id)) = vid {
+            info!("Song is not in database, adding to database");
             self.db_pool.create(song, &id).await?;
             self.send_video(Ok(url)).await?;
             return Ok(());

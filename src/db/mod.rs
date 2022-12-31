@@ -1,11 +1,13 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
+use uuid::Uuid;
 
 pub mod config;
 pub mod songs;
 
-#[derive(Debug, Clone, sqlx::FromRow, sqlx::Decode, sqlx::Encode, Serialize, Deserialize)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct Songs {
-    title: String,
-    artist: String,
-    youtube_id: String,
+    pub id: Uuid,
+    pub title: String,
+    pub artist: String,
+    pub youtube_id: String,
 }

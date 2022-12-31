@@ -110,7 +110,7 @@ impl Song {
     }
 
     pub fn get_url_with_duration(song_id: &str, duration: &str) -> String {
-        format!("https://www.youtube.com/watch?v={}&t={}", song_id, duration)
+        format!("https://www.youtube.com/embed/{song_id}?start={duration}&autoplay=1&")
     }
 }
 

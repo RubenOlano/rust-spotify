@@ -16,15 +16,17 @@ impl SongRepository {
     }
 
     pub async fn create(&self, song: Song, song_id: &String) -> Result<()> {
-        sqlx::query_as::<_, Songs>(
+        sqlx::query_as!(
+            Songs,
             r#"
-            INSERT INTO songs (title, artist, youtube_id)
-            VALUES ($1, $2, $3)
+            insert into songs (title, ARTIST, YOUTUBE_ID)
+            values ($1, $2, $3)
+            returning *
             "#,
+            song.name,
+            song.artist,
+            song_id
         )
-        .bind(song.name)
-        .bind(song.artist)
-        .bind(song_id)
         .fetch_one(&*self.pool)
         .await?;
 

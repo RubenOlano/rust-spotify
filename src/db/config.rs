@@ -18,9 +18,7 @@ impl Config {
     #[instrument]
     pub fn from_env() -> Result<Self> {
         dotenv().ok();
-        tracing_subscriber::fmt()
-            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-            .init();
+
         info!("Loading config from environment variables");
 
         let config = config::Config::builder()

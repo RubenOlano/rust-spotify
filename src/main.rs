@@ -38,7 +38,7 @@ fn init() -> Result<()> {
     color_eyre::install()?;
     dotenv::dotenv()?;
     let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::TRACE)
+        .with_max_level(Level::INFO)
         .finish();
 
     tracing::subscriber::set_global_default(subscriber)?;
