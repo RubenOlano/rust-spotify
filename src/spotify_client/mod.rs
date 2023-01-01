@@ -188,7 +188,7 @@ impl SpotifyClient {
                 return false;
             }
         };
-        return prev_track.name != curr_track.name;
+        prev_track.name != curr_track.name
     }
 
     /// Returns the get prev item of this [`SpotifyClient`].
