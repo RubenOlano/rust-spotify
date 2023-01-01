@@ -103,7 +103,7 @@ impl Song {
             let artist = track.artists[0].name.clone();
             let name = track.name;
             let progress = ctx.progress.unwrap_or_default();
-            let progress = progress.as_secs() as i64;
+            let progress = progress.as_secs().try_into()?;
             Ok(Self::new(name, artist, progress))
         } else {
             Err(color_eyre::eyre::eyre!("No track in context"))
