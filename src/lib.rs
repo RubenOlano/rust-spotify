@@ -57,7 +57,7 @@ pub async fn get_token(
     let code = read.next().await;
     let code = code.ok_or(color_eyre::eyre::eyre!("No code from client"))??;
     info!("Got code from client, {:?}", code.clone());
-    let code = handle_message(code)?;
+    let code = handle_message(&code)?;
     info!("Got code from client");
     auth.request_token(&code).await?;
     auth.write_token_cache().await?;
@@ -65,7 +65,11 @@ pub async fn get_token(
     Ok(())
 }
 
-pub fn handle_message(msg: Message) -> Result<String> {
+/// Handles a [`Message`] from the client.
+/// returns the message as a string
+/// # Errors
+/// This function will return an error if the message received from the client is not a string
+pub fn handle_message(msg: &Message) -> Result<String> {
     let msg = msg
         .to_str()
         .map_err(|_| color_eyre::eyre::eyre!("Could not convert message to string"))?;

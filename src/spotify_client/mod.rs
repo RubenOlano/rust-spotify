@@ -55,7 +55,7 @@ impl SpotifyClient {
             sleep(Duration::from_secs(5)).await;
             state = self.get_state().await;
         }
-        Ok(state?)
+        state
     }
 
     /// Fetches the state of the spotify client.
@@ -166,6 +166,14 @@ impl SpotifyClient {
             }
         };
 
+        if Self::compare_tracks(prev_item, curr_item) {
+            self.update_state(state);
+            return true;
+        }
+        false
+    }
+
+    fn compare_tracks(prev_item: &PlayableItem, curr_item: &PlayableItem) -> bool {
         let prev_track = match prev_item {
             PlayableItem::Track(track) => track,
             PlayableItem::Episode(_) => {
@@ -173,7 +181,6 @@ impl SpotifyClient {
                 return false;
             }
         };
-
         let curr_track = match curr_item {
             PlayableItem::Track(track) => track,
             PlayableItem::Episode(_) => {
@@ -181,13 +188,7 @@ impl SpotifyClient {
                 return false;
             }
         };
-
-        if prev_track.name == curr_track.name {
-            false
-        } else {
-            self.update_state(state);
-            true
-        }
+        return prev_track.name != curr_track.name;
     }
 
     /// Returns the get prev item of this [`SpotifyClient`].
