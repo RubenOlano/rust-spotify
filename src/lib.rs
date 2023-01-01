@@ -55,20 +55,23 @@ pub async fn get_token(
     info!("Sent auth url to client");
     // wait for the client to send the code back
     let code = read.next().await;
-    if let Some(Ok(code)) = code {
-        info!("Got code from client, {:?}", code.clone());
-        let code = match code.to_str() {
-            Ok(code) => code,
-            Err(_) => return Err(color_eyre::eyre::eyre!("Could not convert code to string")),
-        };
-        info!("Got code from client");
-        auth.request_token(code).await?;
-        auth.write_token_cache().await?;
-    } else {
-        return Err(color_eyre::eyre::eyre!("No url from client"));
-    }
+    let code = code.ok_or(color_eyre::eyre::eyre!("No code from client"))??;
+    info!("Got code from client, {:?}", code.clone());
+    let code = handle_message(code)?;
+    info!("Got code from client");
+    auth.request_token(&code).await?;
+    auth.write_token_cache().await?;
 
     Ok(())
+}
+
+pub fn handle_message(msg: Message) -> Result<String> {
+    let msg = msg
+        .to_str()
+        .map_err(|_| color_eyre::eyre::eyre!("Could not convert message to string"))?;
+    let msg = msg.trim();
+    let msg = msg.to_lowercase();
+    Ok(msg)
 }
 
 #[derive(Debug, Clone, sqlx::FromRow, sqlx::Decode)]
@@ -95,10 +98,9 @@ impl Song {
     ///
     /// This function will return an error if the [`CurrentlyPlayingContext`] does not contain a track.
     pub fn from_context(ctx: CurrentlyPlayingContext) -> Result<Self> {
-        let item = match ctx.item {
-            Some(item) => item,
-            None => return Err(color_eyre::eyre::eyre!("No item in context")),
-        };
+        let item = ctx
+            .item
+            .ok_or(color_eyre::eyre::eyre!("No item in context"))?;
         if let PlayableItem::Track(track) = item {
             let artist = track.artists[0].name.clone();
             let name = track.name;

@@ -42,6 +42,11 @@ impl SpotifyClient {
         })
     }
 
+    /// Returns the get state loop of this [`SpotifyClient`].
+    /// This function will attempt to get the state of the spotify client.
+    /// If it fails, it will retry in 5 seconds.
+    /// # Errors
+    /// This function will return an error if returned state has an invalid format.
     async fn get_state_loop(&mut self) -> Result<CurrentlyPlayingContext> {
         let mut state = self.get_state().await;
         while let Err(ref e) = state {
@@ -50,9 +55,12 @@ impl SpotifyClient {
             sleep(Duration::from_secs(5)).await;
             state = self.get_state().await;
         }
-        state
+        Ok(state?)
     }
 
+    /// Fetches the state of the spotify client.
+    /// # Errors
+    /// This function will return an error if an invalid state is returned.
     async fn get_state(&self) -> Result<CurrentlyPlayingContext> {
         let market = Market::Country(rspotify::model::Country::UnitedStates);
 
@@ -74,6 +82,8 @@ impl SpotifyClient {
     /// Returns the start polling of this [`SpotifyClient`].
     /// This function will check if the state has changed every 250 milliseconds.
     /// If the state has changed, it will send the video url to the client.
+    /// # Errors
+    /// This function will return an error if there is an error while handling the state change.
     pub async fn start_polling(&mut self) -> Result<()> {
         info!("Starting polling");
         while let Ok(state) = self.get_state_loop().await {
@@ -81,12 +91,19 @@ impl SpotifyClient {
                 info!("State changed, sending video");
                 self.handle_state_change(state).await?;
             }
-
             sleep(Duration::from_millis(250)).await;
         }
         Ok(())
     }
 
+    /// Sends the video url to the client.
+    /// Cache is checked first, if the song is not in the cache, it will be added.
+    /// # Errors
+    /// This function will return an error if an invalid context is received, an error
+    /// occurs while sending the video.
+    /// # Logging
+    /// This function will log an error if there is an error while adding the song to the database.
+    ///
     async fn handle_state_change(&mut self, state: CurrentlyPlayingContext) -> Result<()> {
         let song = Song::from_context(state)?;
         info!("Checking if song is in database");
@@ -100,7 +117,10 @@ impl SpotifyClient {
         let vid = self.yt_client.get_song_vid(&song).await;
         if let Ok((url, id)) = vid {
             info!("Song is not in database, adding to database");
-            self.db_pool.create(song, &id).await?;
+            match self.db_pool.create(song, &id).await {
+                Ok(_) => info!("Added song to database"),
+                Err(e) => error!("Failed to add song to database: {e}"),
+            }
             self.send_video(Ok(url)).await?;
             return Ok(());
         }
@@ -108,6 +128,10 @@ impl SpotifyClient {
         Ok(())
     }
 
+    /// Sends the video url to the client given a [`Result`] containing the url.
+    /// # Errors
+    /// This function will return an error if there is an error while sending the video
+    /// to the client via the websocket.
     async fn send_video(&mut self, vid: Result<String, Error>) -> Result<(), Error> {
         let msg = match vid {
             Ok(url) => url,
@@ -121,17 +145,24 @@ impl SpotifyClient {
         Ok(())
     }
 
+    /// Returns a boolean indicating if the state has changed.
     fn check_state_change(&mut self, state: &CurrentlyPlayingContext) -> bool {
         let prev_item = match self.get_prev_item() {
             Ok(value) => value,
-            Err(value) => return value,
+            Err(value) => {
+                if value {
+                    self.update_state(state);
+                }
+                return value;
+            }
         };
 
         let curr_item = match &state.item {
             Some(item) => item,
             None => {
                 warn!("Current item was None");
-                return false;
+                self.update_state(state);
+                return true;
             }
         };
 
@@ -159,23 +190,27 @@ impl SpotifyClient {
         }
     }
 
+    /// Returns the get prev item of this [`SpotifyClient`].
+    /// # Errors
+    /// This function will return an error containing a boolean indicating if the state should be updated.
     fn get_prev_item(&mut self) -> Result<&PlayableItem, bool> {
         let prev = if let Some(prev) = self.prev_state.as_ref() {
             prev
         } else {
             warn!("Previous state was None");
-            return Err(false);
+            return Err(true);
         };
         let prev_item = match &prev.item {
             Some(item) => item,
             None => {
                 warn!("Previous item was None");
-                return Err(false);
+                return Err(true);
             }
         };
         Ok(prev_item)
     }
 
+    /// Updates the previous state of this [`SpotifyClient`].
     fn update_state(&mut self, state: &CurrentlyPlayingContext) {
         self.prev_state = Some(state.clone());
     }
