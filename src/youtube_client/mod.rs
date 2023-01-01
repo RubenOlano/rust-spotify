@@ -6,7 +6,7 @@ use reqwest::{
     Client,
 };
 use spotify_music_vid::Song;
-use tracing::info;
+use tracing::{error, info};
 
 use self::search::ListResponse;
 
@@ -68,7 +68,13 @@ impl YoutubeClient {
 
 impl Default for YoutubeClient {
     fn default() -> Self {
-        Self::new().unwrap()
+        match Self::new() {
+            Ok(client) => client,
+            Err(e) => {
+                error!("Failed to create YoutubeClient: {e}");
+                panic!("Failed to create YoutubeClient: {e}");
+            }
+        }
     }
 }
 

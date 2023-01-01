@@ -18,10 +18,10 @@ use warp::{
 type Writer = SplitSink<WebSocket, Message>;
 
 #[tokio::main]
-async fn main() {
-    init().unwrap();
-    let config = Config::from_env().expect("Loading config from environment variables");
-    let pool = config.create_db_pool().await.unwrap();
+async fn main() -> Result<()> {
+    init()?;
+    let config = Config::from_env()?;
+    let pool = config.create_db_pool().await?;
 
     // create websocket client
     let routes = warp::path("ws")
@@ -32,6 +32,7 @@ async fn main() {
         });
 
     warp::serve(routes).run(([127, 0, 0, 1], 8080)).await;
+    Ok(())
 }
 
 fn init() -> Result<()> {
