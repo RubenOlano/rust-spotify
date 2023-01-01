@@ -122,19 +122,9 @@ impl SpotifyClient {
     }
 
     fn check_state_change(&mut self, state: &CurrentlyPlayingContext) -> bool {
-        let prev = if let Some(prev) = self.prev_state.as_ref() {
-            prev
-        } else {
-            warn!("Previous state was None");
-            return false;
-        };
-
-        let prev_item = match &prev.item {
-            Some(item) => item,
-            None => {
-                warn!("Previous item was None");
-                return false;
-            }
+        let prev_item = match self.get_prev_item() {
+            Ok(value) => value,
+            Err(value) => return value,
         };
 
         let curr_item = match &state.item {
@@ -167,6 +157,23 @@ impl SpotifyClient {
             self.update_state(state);
             true
         }
+    }
+
+    fn get_prev_item(&mut self) -> Result<&PlayableItem, bool> {
+        let prev = if let Some(prev) = self.prev_state.as_ref() {
+            prev
+        } else {
+            warn!("Previous state was None");
+            return Err(false);
+        };
+        let prev_item = match &prev.item {
+            Some(item) => item,
+            None => {
+                warn!("Previous item was None");
+                return Err(false);
+            }
+        };
+        Ok(prev_item)
     }
 
     fn update_state(&mut self, state: &CurrentlyPlayingContext) {
