@@ -9,7 +9,7 @@ use rspotify::AuthCodeSpotify;
 use spotify_client::SpotifyClient;
 use spotify_music_vid::{get_auth, get_token};
 use sqlx::{Pool, Postgres};
-use tracing::Level;
+use tracing::{error, Level};
 use tracing_subscriber::FmtSubscriber;
 use warp::{
     ws::{Message, WebSocket},
@@ -54,7 +54,25 @@ async fn run_program(write: Writer, auth: AuthCodeSpotify, pool: Pool<Postgres>)
 
 async fn handle_connect(socket: WebSocket, pool: Pool<Postgres>) {
     let (mut tx, mut rx) = socket.split();
-    let auth = get_auth().unwrap();
-    get_token(&auth, &mut rx, &mut tx).await.unwrap();
-    run_program(tx, auth, pool).await.unwrap();
+    let auth = match get_auth() {
+        Ok(auth) => auth,
+        Err(e) => {
+            error!("Failed to get auth: {e}");
+            return;
+        }
+    };
+    match get_token(&auth, &mut rx, &mut tx).await {
+        Ok(_) => (),
+        Err(e) => {
+            error!("Failed to get token: {e}");
+            return;
+        }
+    };
+    match run_program(tx, auth, pool).await {
+        Ok(_) => (),
+        Err(e) => {
+            error!("Failed to run program: {e}");
+            return;
+        }
+    };
 }
