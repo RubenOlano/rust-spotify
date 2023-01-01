@@ -70,9 +70,6 @@ async fn handle_connect(socket: WebSocket, pool: Pool<Postgres>) {
     };
     match run_program(tx, auth, pool).await {
         Ok(_) => (),
-        Err(e) => {
-            error!("Failed to run program: {e}");
-            return;
-        }
-    };
+        Err(e) => error!("Failed to run program: {e}"),
+    }
 }
