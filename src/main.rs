@@ -42,7 +42,8 @@ fn init() -> Result<()> {
     color_eyre::install()?;
     dotenv::dotenv()?;
     let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::INFO)
+        .with_max_level(Level::DEBUG)
+        .pretty()
         .finish();
 
     tracing::subscriber::set_global_default(subscriber)?;
@@ -71,7 +72,7 @@ async fn handle_connect(socket: WebSocket, pool: Arc<Pool<Postgres>>) {
     match get_token(&auth, &mut rx, &mut tx).await {
         Ok(_) => (),
         Err(e) => {
-            error!("Failed to get token: {e}");
+            error!("Failed to get token: {:?}", e);
             return;
         }
     };

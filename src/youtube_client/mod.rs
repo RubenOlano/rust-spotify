@@ -3,7 +3,7 @@ mod search;
 use color_eyre::eyre::Result;
 use reqwest::{
     header::{HeaderMap, ACCEPT},
-    Client,
+    Client, Response,
 };
 use spotify_music_vid::Song;
 use tracing::{error, info};
@@ -18,9 +18,7 @@ pub struct YoutubeClient {
 
 impl YoutubeClient {
     /// Creates a new [`YoutubeClient`].
-    ///
     /// # Errors
-    ///
     /// This function will return an error if the environment variable `YOUTUBE_API_KEY` is not set.
     pub fn new() -> Result<Self> {
         Ok(Self {
@@ -31,17 +29,19 @@ impl YoutubeClient {
 
     /// Gets the video url for a song given [`Song`].
     /// This function will search for the song on youtube and return the first result.
-    ///
     /// # Errors
-    ///
     /// This function will return an error if the request fails or if the response is not valid.
     pub async fn get_song_vid(&self, song: &Song) -> Result<(String, String)> {
         let query = format!("{} {} music video", song.artist, song.name);
-        let res = self.send_req(&query, song).await?;
+        let res = self.send_req(&query).await?;
+        let res = self.parse_res(res, song).await?;
         Ok(res)
     }
 
-    async fn send_req(&self, query: &str, song: &Song) -> Result<(String, String)> {
+    /// Sends the request to youtube.
+    /// # Errors
+    /// This function will return an error if the request fails.
+    async fn send_req(&self, query: &str) -> Result<Response> {
         let headers = get_headers()?;
 
         let res = self
@@ -54,13 +54,15 @@ impl YoutubeClient {
                 ("key", self.api_key.as_str()),
             ])
             .send()
-            .await?;
+            .await;
 
-        let res = self.parse_res(res, song).await?;
-        Ok(res)
+        Ok(res?)
     }
 
-    async fn parse_res(&self, res: reqwest::Response, song: &Song) -> Result<(String, String)> {
+    /// Parses the response from youtube.
+    /// # Errors
+    /// This function will return an error if the response is not valid.
+    async fn parse_res(&self, res: Response, song: &Song) -> Result<(String, String)> {
         let res: ListResponse = res.json().await?;
         Ok(res.get_vid_url(song))
     }

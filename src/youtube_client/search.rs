@@ -70,6 +70,8 @@ pub struct PageInfo {
 }
 
 impl ListResponse {
+    /// Returns the video id of the first item in the response
+    /// If no video id is found, it returns a default video id
     fn get_video_id(&self) -> String {
         if let Some(video_id) = &self.items[0].id.video_id {
             return video_id.clone();
@@ -78,11 +80,13 @@ impl ListResponse {
         "CJtvnepMVAU".to_string()
     }
 
+    /// Returns the url of the video and the video id
+    /// The url is used to embed the video
     pub fn get_vid_url(&self, song: &Song) -> (String, String) {
         let video_id = self.get_video_id();
         let duration = song.progress;
         (
-            format!("https://www.youtube.com/embed/{video_id}?start={duration}&autoplay=1&"),
+            format!("https://www.youtube.com/embed/{video_id}?start={duration}&autoplay=1&enablejsapi=1"),
             video_id,
         )
     }

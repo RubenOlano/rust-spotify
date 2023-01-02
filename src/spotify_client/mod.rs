@@ -63,13 +63,12 @@ impl SpotifyClient {
     /// This function will return an error if an invalid state is returned.
     async fn get_state(&self) -> Result<CurrentlyPlayingContext> {
         let market = Market::Country(rspotify::model::Country::UnitedStates);
-
         let add = AdditionalType::Track;
-
         let res = self
             .spotify
             .current_playing(Some(market), Some(vec![&add]))
             .await?;
+
         res.map_or_else(
             || {
                 warn!("No song is currently playing");
@@ -103,7 +102,6 @@ impl SpotifyClient {
     /// occurs while sending the video.
     /// # Logging
     /// This function will log an error if there is an error while adding the song to the database.
-    ///
     async fn handle_state_change(&mut self, state: CurrentlyPlayingContext) -> Result<()> {
         let song = Song::from_context(state)?;
         info!("Checking if song is in database");
@@ -124,7 +122,6 @@ impl SpotifyClient {
             self.send_video(Ok(url)).await?;
             return Ok(());
         }
-
         Ok(())
     }
 
@@ -173,6 +170,7 @@ impl SpotifyClient {
         false
     }
 
+    /// Returns a boolean indicating if the tracks are different.
     fn compare_tracks(prev_item: &PlayableItem, curr_item: &PlayableItem) -> bool {
         let prev_track = match prev_item {
             PlayableItem::Track(track) => track,
