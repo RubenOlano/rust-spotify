@@ -2,6 +2,8 @@ mod db;
 mod spotify_client;
 mod youtube_client;
 
+use std::sync::Arc;
+
 use color_eyre::Result;
 use db::config::Config;
 use futures_util::{stream::SplitSink, StreamExt};
@@ -22,11 +24,12 @@ async fn main() -> Result<()> {
     init()?;
     let config = Config::from_env()?;
     let pool = config.create_db_pool().await?;
+    let arc_pool = Arc::new(pool);
 
     // create websocket client
     let routes = warp::path("ws")
         .and(warp::ws())
-        .and(warp::any().map(move || pool.clone()))
+        .and(warp::any().map(move || Arc::clone(&arc_pool)))
         .map(|ws: warp::ws::Ws, pool_conn| {
             ws.on_upgrade(move |socket| handle_connect(socket, pool_conn))
         });
@@ -46,13 +49,17 @@ fn init() -> Result<()> {
     Ok(())
 }
 
-async fn run_program(write: Writer, auth: AuthCodeSpotify, pool: Pool<Postgres>) -> Result<()> {
+async fn run_program(
+    write: Writer,
+    auth: AuthCodeSpotify,
+    pool: Arc<Pool<Postgres>>,
+) -> Result<()> {
     let mut client = SpotifyClient::new(auth, write, pool)?;
     client.start_polling().await?;
     Ok(())
 }
 
-async fn handle_connect(socket: WebSocket, pool: Pool<Postgres>) {
+async fn handle_connect(socket: WebSocket, pool: Arc<Pool<Postgres>>) {
     let (mut tx, mut rx) = socket.split();
     let auth = match get_auth() {
         Ok(auth) => auth,

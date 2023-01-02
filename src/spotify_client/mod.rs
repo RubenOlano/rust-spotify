@@ -28,10 +28,10 @@ impl SpotifyClient {
     /// Creates a new [`SpotifyClient`].
     /// This function will also load the environment variables
     /// `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` are required
-    pub fn new(auth: AuthCodeSpotify, writer: Writer, pool: Pool<Postgres>) -> Result<Self> {
+    pub fn new(auth: AuthCodeSpotify, writer: Writer, pool: Arc<Pool<Postgres>>) -> Result<Self> {
         info!("Creating new SpotifyClient and loading environment variables");
         let yt_client = YoutubeClient::new()?;
-        let pool = SongRepository::new(Arc::new(pool));
+        let pool = SongRepository::new(pool);
 
         Ok(Self {
             spotify: auth,
