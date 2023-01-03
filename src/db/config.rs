@@ -28,7 +28,7 @@ impl Config {
 
         Ok(config)
     }
-
+    #[instrument]
     pub async fn create_db_pool(&self) -> Result<PgPool> {
         info!("Creating database pool");
         PgPoolOptions::new()

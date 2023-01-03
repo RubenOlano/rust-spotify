@@ -9,7 +9,7 @@ use rspotify::{
     scopes, AuthCodeSpotify, Credentials, OAuth,
 };
 use std::fmt::Display;
-use tracing::info;
+use tracing::{info, instrument};
 use warp::ws::{Message, WebSocket};
 
 type Reader = SplitStream<WebSocket>;
@@ -20,6 +20,7 @@ type Writer = SplitSink<WebSocket, Message>;
 /// requires `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET`
 /// # Errors
 /// Returns an error if the environment variables are not set
+#[instrument]
 pub fn get_auth() -> Result<AuthCodeSpotify> {
     info!("Getting env variables");
     dotenv::dotenv().ok();
@@ -42,6 +43,7 @@ pub fn get_auth() -> Result<AuthCodeSpotify> {
 /// requires `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET`
 /// # Errors
 /// Returns an error if the environment variables are not set
+#[instrument]
 pub async fn get_token(
     auth: &AuthCodeSpotify,
     read: &mut Reader,
@@ -68,6 +70,7 @@ pub async fn get_token(
 /// returns the message as a string
 /// # Errors
 /// This function will return an error if the message received from the client is not a string
+#[instrument]
 pub fn handle_message(msg: &Message) -> Result<String> {
     let msg = msg
         .to_str()

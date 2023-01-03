@@ -10,7 +10,7 @@ use rspotify::{
 use spotify_music_vid::Song;
 use sqlx::{Pool, Postgres};
 use tokio::time::{sleep, Duration};
-use tracing::{error, info, warn};
+use tracing::{error, info, instrument, warn};
 use warp::ws::{Message, WebSocket};
 
 use crate::{db::songs::SongRepository, youtube_client::YoutubeClient};
@@ -28,6 +28,7 @@ impl SpotifyClient {
     /// Creates a new [`SpotifyClient`].
     /// This function will also load the environment variables
     /// `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` are required
+    #[instrument]
     pub fn new(auth: AuthCodeSpotify, writer: Writer, pool: Arc<Pool<Postgres>>) -> Result<Self> {
         info!("Creating new SpotifyClient and loading environment variables");
         let yt_client = YoutubeClient::new()?;

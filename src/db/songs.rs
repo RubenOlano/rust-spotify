@@ -3,6 +3,7 @@ use std::sync::Arc;
 use color_eyre::eyre::Result;
 use spotify_music_vid::Song;
 use sqlx::PgPool;
+use tracing::instrument;
 
 use super::Songs;
 
@@ -15,6 +16,7 @@ impl SongRepository {
         Self { pool }
     }
 
+    #[instrument(skip(self))]
     pub async fn create(&self, song: Song, song_id: &String) -> Result<()> {
         sqlx::query_as!(
             Songs,
@@ -32,6 +34,7 @@ impl SongRepository {
 
         Ok(())
     }
+    #[instrument(skip(self))]
     pub async fn get(&self, song: &Song) -> Option<String> {
         let song = sqlx::query_as::<_, Songs>(
             r#"

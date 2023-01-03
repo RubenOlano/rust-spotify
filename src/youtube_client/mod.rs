@@ -6,7 +6,7 @@ use reqwest::{
     Client, Response,
 };
 use spotify_music_vid::Song;
-use tracing::{error, info};
+use tracing::{error, info, instrument};
 
 use self::search::ListResponse;
 
@@ -31,6 +31,7 @@ impl YoutubeClient {
     /// This function will search for the song on youtube and return the first result.
     /// # Errors
     /// This function will return an error if the request fails or if the response is not valid.
+    #[instrument(skip(self))]
     pub async fn get_song_vid(&self, song: &Song) -> Result<(String, String)> {
         let query = format!("{} {} music video", song.artist, song.name);
         let res = self.send_req(&query).await?;
