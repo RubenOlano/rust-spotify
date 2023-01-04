@@ -23,7 +23,7 @@ type Writer = SplitSink<WebSocket, Message>;
 #[instrument]
 pub fn get_auth() -> Result<AuthCodeSpotify> {
     info!("Getting env variables");
-    dotenv::dotenv().ok();
+    // dotenv::dotenv().ok();
     let client_id = std::env::var("SPOTIFY_CLIENT_ID")?;
     let client_secret = std::env::var("SPOTIFY_CLIENT_SECRET")?;
 

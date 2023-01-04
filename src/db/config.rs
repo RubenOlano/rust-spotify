@@ -17,7 +17,7 @@ pub struct Config {
 impl Config {
     #[instrument]
     pub fn from_env() -> Result<Self> {
-        dotenv().ok();
+        // dotenv().ok();
 
         info!("Loading config from environment variables");
 

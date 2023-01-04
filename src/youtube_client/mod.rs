@@ -83,7 +83,7 @@ impl Default for YoutubeClient {
 
 fn get_env_var() -> Result<String> {
     info!("Loading environment variables");
-    dotenv::dotenv()?;
+    // dotenv::dotenv()?;
     let api_key = std::env::var("YOUTUBE_API_KEY")?;
     Ok(api_key)
 }

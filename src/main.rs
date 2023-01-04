@@ -29,7 +29,7 @@ async fn main() -> Result<()> {
     // create websocket client
     let routes = warp::path("ws")
         .and(warp::ws())
-        .and(warp::any().map(move || Arc::clone(&arc_pool)))
+        .and(warp::any().map(move || arc_pool.clone()))
         .map(|ws: warp::ws::Ws, pool_conn| {
             ws.on_upgrade(move |socket| handle_connect(socket, pool_conn))
         });
@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
 
 fn init() -> Result<()> {
     color_eyre::install()?;
-    dotenv::dotenv()?;
+    // dotenv::dotenv()?;
     let subscriber = FmtSubscriber::builder()
         .with_max_level(Level::DEBUG)
         .pretty()
