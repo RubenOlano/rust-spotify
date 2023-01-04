@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use color_eyre::eyre::Result;
-use dotenv::dotenv;
 use eyre::Context;
 use serde::Deserialize;
 use sqlx::{postgres::PgPoolOptions, PgPool};

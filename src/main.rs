@@ -34,7 +34,7 @@ async fn main() -> Result<()> {
             ws.on_upgrade(move |socket| handle_connect(socket, pool_conn))
         });
 
-    warp::serve(routes).run(([127, 0, 0, 1], 8080)).await;
+    warp::serve(routes).run(([0, 0, 0, 0], 8080)).await;
     Ok(())
 }
 
